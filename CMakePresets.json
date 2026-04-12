@@ -5,7 +5,10 @@
       "name": "base",
       "hidden": true,
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/${presetName}"
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
     },
     {
       "name": "local-dev",
@@ -92,5 +95,10 @@
     { "name": "spectrum-only", "configurePreset": "spectrum-only" },
     { "name": "linalg-only",   "configurePreset": "linalg-only"   },
     { "name": "full-release",  "configurePreset": "full-release"  }
+  ],
+  "testPresets": [
+    { "name": "local-dev",        "configurePreset": "local-dev",        "output": { "outputOnFailure": true } },
+    { "name": "debian-local-dev", "configurePreset": "debian-local-dev", "output": { "outputOnFailure": true } },
+    { "name": "ci",               "configurePreset": "ci",               "output": { "outputOnFailure": true } }
   ]
 }

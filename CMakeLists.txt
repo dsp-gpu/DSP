@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
-project(DSP LANGUAGES NONE)
+project(DSP VERSION 0.1.0
+  DESCRIPTION "DSP-GPU meta-repo: unified build of all modules"
+  LANGUAGES NONE)
 
 include(FetchContent)
 include(cmake/fetch_deps.cmake)
