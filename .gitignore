@@ -1,0 +1,8 @@
+build/
+*.pyd
+*.so
+__pycache__/
+.cache/
+Python/lib/
+Logs/
+Results/

@@ -1,0 +1,87 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}"
+    },
+    {
+      "name": "local-dev",
+      "displayName": "Local: все репо рядом на диске (E:\\DSP-GPU\\)",
+      "inherits": "base",
+      "description": "Не клонирует с GitHub — использует локальные папки",
+      "cacheVariables": {
+        "FETCHCONTENT_SOURCE_DIR_DSPCORE":             "${sourceDir}/../core",
+        "FETCHCONTENT_SOURCE_DIR_DSPSPECTRUM":         "${sourceDir}/../spectrum",
+        "FETCHCONTENT_SOURCE_DIR_DSPSTATS":            "${sourceDir}/../stats",
+        "FETCHCONTENT_SOURCE_DIR_DSPSIGNALGENERATORS": "${sourceDir}/../signal_generators",
+        "FETCHCONTENT_SOURCE_DIR_DSPHETERODYNE":       "${sourceDir}/../heterodyne",
+        "FETCHCONTENT_SOURCE_DIR_DSPLINALG":           "${sourceDir}/../linalg",
+        "FETCHCONTENT_SOURCE_DIR_DSPRADAR":            "${sourceDir}/../radar",
+        "FETCHCONTENT_SOURCE_DIR_DSPSTRATEGIES":       "${sourceDir}/../strategies",
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "ci",
+      "displayName": "CI: FetchContent с тегами из GitHub",
+      "inherits": "base",
+      "description": "Тянет конкретные версии каждого репо",
+      "cacheVariables": {
+        "DSP_CORE_TAG":              "v0.1.0",
+        "DSP_SPECTRUM_TAG":          "v0.1.0",
+        "DSP_STATS_TAG":             "v0.1.0",
+        "DSP_SIGNAL_GENERATORS_TAG": "v0.1.0",
+        "DSP_HETERODYNE_TAG":        "v0.1.0",
+        "DSP_LINALG_TAG":            "v0.1.0",
+        "DSP_RADAR_TAG":             "v0.1.0",
+        "DSP_STRATEGIES_TAG":        "v0.1.0",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "spectrum-only",
+      "displayName": "Только spectrum (отдел анализа сигналов)",
+      "inherits": "local-dev",
+      "cacheVariables": {
+        "DSP_BUILD_STATS":             "OFF",
+        "DSP_BUILD_SIGNAL_GENERATORS": "OFF",
+        "DSP_BUILD_HETERODYNE":        "OFF",
+        "DSP_BUILD_LINALG":            "OFF",
+        "DSP_BUILD_RADAR":             "OFF",
+        "DSP_BUILD_STRATEGIES":        "OFF"
+      }
+    },
+    {
+      "name": "linalg-only",
+      "displayName": "Только linalg (отдел линейной алгебры)",
+      "inherits": "local-dev",
+      "cacheVariables": {
+        "DSP_BUILD_SPECTRUM":          "OFF",
+        "DSP_BUILD_STATS":             "OFF",
+        "DSP_BUILD_SIGNAL_GENERATORS": "OFF",
+        "DSP_BUILD_HETERODYNE":        "OFF",
+        "DSP_BUILD_RADAR":             "OFF",
+        "DSP_BUILD_STRATEGIES":        "OFF"
+      }
+    },
+    {
+      "name": "full-release",
+      "displayName": "Полная сборка (релиз)",
+      "inherits": "ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DSP_BUILD_PYTHON": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "local-dev",     "configurePreset": "local-dev"     },
+    { "name": "ci",            "configurePreset": "ci"            },
+    { "name": "spectrum-only", "configurePreset": "spectrum-only" },
+    { "name": "linalg-only",   "configurePreset": "linalg-only"   },
+    { "name": "full-release",  "configurePreset": "full-release"  }
+  ]
+}
