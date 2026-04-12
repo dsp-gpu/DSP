@@ -42,6 +42,14 @@
       }
     },
     {
+      "name": "debian-local-dev",
+      "displayName": "Debian Local (ROCm, ~/dsp-gpu/)",
+      "inherits": "local-dev",
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "/opt/rocm"
+      }
+    },
+    {
       "name": "spectrum-only",
       "displayName": "Только spectrum (отдел анализа сигналов)",
       "inherits": "local-dev",
@@ -78,8 +86,9 @@
     }
   ],
   "buildPresets": [
-    { "name": "local-dev",     "configurePreset": "local-dev"     },
-    { "name": "ci",            "configurePreset": "ci"            },
+    { "name": "local-dev",        "configurePreset": "local-dev"        },
+    { "name": "debian-local-dev", "configurePreset": "debian-local-dev" },
+    { "name": "ci",               "configurePreset": "ci"               },
     { "name": "spectrum-only", "configurePreset": "spectrum-only" },
     { "name": "linalg-only",   "configurePreset": "linalg-only"   },
     { "name": "full-release",  "configurePreset": "full-release"  }
