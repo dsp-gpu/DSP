@@ -1,41 +1,39 @@
 """
-gpu_loader.py — GPULoader Singleton
+gpu_loader.py — DSPLoader Singleton
 =====================================
 
 Singleton (GoF) + Protected Variations (GRASP):
-  Находит gpuworklib.so/.pyd один раз для всей сессии.
+  Находит dsp_core.so/.pyd один раз для всей сессии.
   Все тесты получают модуль через GPULoader.get() вместо хардкода путей.
 
 Порядок поиска (от приоритетного к резервному):
-  0. GPUWORKLIB_BUILD_DIR (переменная окружения)  ← высший приоритет
-  1. build/python/Release          ← MSVC Release
-  2. build/python/Debug            ← MSVC Debug
-  3. build/debian-radeon9070/python ← Linux ROCm (RDNA4, gfx1201)
-  4. build/debian-mi100/python     ← Linux ROCm (CDNA1, gfx908)
-  5. build/Release                 ← альтернатива
-  6. build/Debug
-  7. build/python                  ← общая сборка
-  8. build/**/gpuworklib.*         ← авто-поиск по всему build/
+  0. DSP_LIB_DIR (переменная окружения)  ← высший приоритет
+  1. DSP/Python/lib/                     ← cmake --install prefix
+  2. build/python/Release                ← MSVC Release
+  3. build/python/Debug                  ← MSVC Debug
+  4. build/debian-radeon9070/python      ← Linux ROCm (RDNA4, gfx1201)
+  5. build/debian-mi100/python           ← Linux ROCm (CDNA1, gfx908)
+  6. build/Release, build/Debug
+  7. build/**/dsp_core.*                 ← авто-поиск по build/
 
-Usage:
-    gw = GPULoader.get()           # модуль gpuworklib или None
-    if gw is None:
-        raise SkipTest("gpuworklib not found")
+После нахождения lib/ добавляет его в sys.path.
+Тогда `import gpuworklib` найдёт shim gpuworklib.py и все 8 .pyd модулей.
 
+Usage (обратная совместимость):
+    gw = GPULoader.get()       # возвращает модуль gpuworklib
     ctx = gw.GPUContext()
+    fft = gw.FFTProcessor(ctx)
 
-Cross-platform:
-    Windows: gpuworklib.cpXXX-win_amd64.pyd
-    Linux:   gpuworklib.cpython-XXX-x86_64-linux-gnu.so
-    Python import system resolves the extension automatically.
+Новый стиль (рекомендуется):
+    GPULoader.setup_path()     # добавляет lib/ в sys.path
+    import dsp_core as core
+    ctx = core.ROCmGPUContext()
 
-    Override build path:
-        GPUWORKLIB_BUILD_DIR=/path/to/build/python python Python_test/module/test_xxx.py
+TODO (Фаза 3b): полностью переписать тесты на новый стиль
+
+@author Кодо (AI Assistant)
+@date 2026-04-12 (Phase 3b, dsp-gpu модульная архитектура)
 """
-
-# TODO (Фаза 3b): переписать под 8 отдельных .pyd модулей
-# import dsp_core, dsp_spectrum, dsp_stats, dsp_signal_generators,
-#        dsp_heterodyne, dsp_linalg, dsp_radar, dsp_strategies
 
 import glob
 import os
@@ -44,40 +42,39 @@ from pathlib import Path
 from typing import Optional
 
 
-# Корень проекта GPUWorkLib (2 уровня вверх от common/)
-_PROJECT_ROOT = Path(__file__).parents[2]
+# Корень DSP/Python/ (2 уровня вверх от common/)
+_PYTHON_ROOT = Path(__file__).parents[1]
+# Корень DSP/ (3 уровня вверх от common/)
+_DSP_ROOT = Path(__file__).parents[2]
 
 _SEARCH_PATHS = [
-    "build/python/Release",
-    "build/python/Debug",
-    "build/debian-radeon9070/python",
-    "build/debian-mi100/python",
-    "build/Release",
-    "build/Debug",
-    "build/python",
+    _PYTHON_ROOT / "lib",            # cmake --install
+    _DSP_ROOT / "build/python/Release",
+    _DSP_ROOT / "build/python/Debug",
+    _DSP_ROOT / "build/debian-radeon9070/python",
+    _DSP_ROOT / "build/debian-mi100/python",
+    _DSP_ROOT / "build/Release",
+    _DSP_ROOT / "build/Debug",
+    _DSP_ROOT / "build/python",
 ]
 
 
 class GPULoader:
-    """Singleton — загружает gpuworklib один раз для всей сессии.
+    """Singleton — загружает dsp_core и возвращает gpuworklib shim.
 
     Attributes:
-        _instance:   единственный экземпляр (Singleton)
-        _gpuworklib: загруженный модуль или None
-        _loaded_from: путь откуда загружен модуль
+        _gpuworklib:   модуль gpuworklib (shim) или None
+        _lib_path:     путь откуда загружены модули
+        _load_attempted: флаг что поиск уже выполнен
     """
 
-    _instance: Optional["GPULoader"] = None
     _gpuworklib = None
-    _loaded_from: Optional[str] = None
+    _lib_path: Optional[Path] = None
     _load_attempted: bool = False
 
     @classmethod
     def get(cls):
-        """Получить модуль gpuworklib.
-
-        Первый вызов — ищет .so/.pyd по _SEARCH_PATHS и импортирует.
-        Последующие вызовы — возвращают кешированный результат.
+        """Получить модуль gpuworklib (обратная совместимость).
 
         Returns:
             Модуль gpuworklib или None если не найден.
@@ -88,73 +85,102 @@ class GPULoader:
         return cls._gpuworklib
 
     @classmethod
-    def _try_load(cls) -> None:
-        """Найти и загрузить gpuworklib."""
+    def setup_path(cls) -> bool:
+        """Добавить lib/ в sys.path без возврата модуля.
 
-        def _try_path(path: Path, label: str) -> bool:
-            """Добавить path в sys.path и попробовать import. True если успешно."""
-            sys.path.insert(0, str(path))
+        Returns:
+            True если lib/ найден и добавлен.
+        """
+        if not cls._load_attempted:
+            cls._load_attempted = True
+            cls._try_load()
+        return cls._lib_path is not None
+
+    @classmethod
+    def _try_load(cls) -> None:
+        """Найти lib-директорию и загрузить gpuworklib."""
+
+        def _try_lib_path(path: Path) -> bool:
+            """Добавить path в sys.path и попробовать import dsp_core."""
+            if not path.exists():
+                return False
+            path_str = str(path)
+            if path_str not in sys.path:
+                sys.path.insert(0, path_str)
             try:
-                import gpuworklib as gw
-                cls._gpuworklib = gw
-                cls._loaded_from = label
+                import dsp_core  # noqa: F401
+                cls._lib_path = path
                 return True
             except ImportError:
-                sys.path.pop(0)
+                if path_str in sys.path:
+                    sys.path.remove(path_str)
                 return False
 
-        # 0. Переменная окружения GPUWORKLIB_BUILD_DIR (высший приоритет)
-        env_dir = os.environ.get("GPUWORKLIB_BUILD_DIR")
+        # 0. Переменная окружения DSP_LIB_DIR (высший приоритет)
+        env_dir = os.environ.get("DSP_LIB_DIR")
         if env_dir:
             candidate = Path(env_dir)
             if not candidate.is_absolute():
-                candidate = _PROJECT_ROOT / candidate
-            if candidate.exists() and _try_path(candidate, f"env: {candidate}"):
+                candidate = _DSP_ROOT / candidate
+            if _try_lib_path(candidate):
+                cls._load_gpuworklib()
                 return
 
-        # 1. Попробовать уже добавленные пути (вдруг уже доступен)
+        # 1. Уже доступен?
         try:
-            import gpuworklib as gw
-            cls._gpuworklib = gw
-            cls._loaded_from = "already in sys.path"
+            import dsp_core  # noqa: F401
+            cls._lib_path = Path("(already in sys.path)")
+            cls._load_gpuworklib()
             return
         except ImportError:
             pass
 
-        # 2. Перебрать статические пути поиска
-        for rel_path in _SEARCH_PATHS:
-            candidate = _PROJECT_ROOT / rel_path
-            if candidate.exists() and _try_path(candidate, str(candidate)):
+        # 2. Перебрать статические пути
+        for candidate in _SEARCH_PATHS:
+            if _try_lib_path(candidate):
+                cls._load_gpuworklib()
                 return
 
-        # 3. Авто-поиск: найти gpuworklib.* где угодно внутри build/
-        build_dir = _PROJECT_ROOT / "build"
+        # 3. Авто-поиск: найти dsp_core.* где угодно внутри build/
+        build_dir = _DSP_ROOT / "build"
         if build_dir.exists():
-            pattern = str(build_dir / "**" / "gpuworklib*")
+            pattern = str(build_dir / "**" / "dsp_core*")
             for found in sorted(glob.glob(pattern, recursive=True)):
                 fp = Path(found)
-                # Только .pyd (Windows) или .so (Linux), пропустить .so.debug и т.п.
                 if fp.suffix in (".pyd", ".so") or ".cpython" in fp.name:
-                    parent = fp.parent
-                    if _try_path(parent, f"auto: {parent}"):
+                    if _try_lib_path(fp.parent):
+                        cls._load_gpuworklib()
                         return
 
-        # Ничего не нашли
+        # Не нашли
         cls._gpuworklib = None
 
     @classmethod
+    def _load_gpuworklib(cls) -> None:
+        """Импортировать gpuworklib shim после настройки sys.path."""
+        # gpuworklib.py находится в DSP/Python/ — добавляем если нужно
+        python_root_str = str(_PYTHON_ROOT)
+        if python_root_str not in sys.path:
+            sys.path.insert(0, python_root_str)
+        try:
+            import gpuworklib as gw
+            cls._gpuworklib = gw
+        except ImportError:
+            cls._gpuworklib = None
+
+    @classmethod
     def loaded_from(cls) -> Optional[str]:
-        """Вернуть путь откуда загружен модуль (для диагностики)."""
-        return cls._loaded_from
+        """Вернуть путь откуда загружены модули (для диагностики)."""
+        return str(cls._lib_path) if cls._lib_path else None
 
     @classmethod
     def is_available(cls) -> bool:
-        """True если gpuworklib доступен."""
+        """True если dsp_core доступен."""
         return cls.get() is not None
 
     @classmethod
     def reset(cls) -> None:
         """Сбросить Singleton (для тестирования GPULoader)."""
         cls._gpuworklib = None
-        cls._loaded_from = None
+        cls._lib_path = None
         cls._load_attempted = False
