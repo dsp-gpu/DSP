@@ -6,3 +6,6 @@ __pycache__/
 Python/lib/
 Logs/
 Results/
+Doc/Doxygen/**/html/
+Doc/Doxygen/**/*.tag
+~!*
