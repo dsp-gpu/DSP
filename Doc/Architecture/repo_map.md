@@ -1,7 +1,7 @@
 # DSP-GPU — Карта репозиториев
 
 > **Дата**: 2026-04-12
-> **Источник**: GPUWorkLib (E:\C++\GPUWorkLib)
+> **Источник**: DSP-GPU (E:\C++\DSP-GPU)
 
 ---
 
@@ -42,7 +42,7 @@ graph LR
 | | |
 |---|---|
 | **GitHub** | `github.com/dsp-gpu/core` |
-| **Источник** | `GPUWorkLib/DrvGPU/` + `modules/test_utils/` |
+| **Источник** | `DSP-GPU/core/` + `modules/test_utils/` |
 | **Содержимое** | Multi-backend GPU driver (OpenCL baseline + ROCm) |
 | **CMake targets** | `DspCore::DspCore`, `DspCore::TestUtils` |
 | **External SDK** | OpenCL, HIP, hiprtc (opt), plog, hsa-runtime64 (opt) |
@@ -163,7 +163,7 @@ graph LR
 | | |
 |---|---|
 | **GitHub** | `github.com/dsp-gpu/DSP` |
-| **Источник** | GPUWorkLib: Python_test/, Doc/, Doc_Addition/, MemoryBank/ |
+| **Источник** | DSP-GPU: Python_test/, Doc/, Doc_Addition/, MemoryBank/ |
 | **Содержимое** | Мета-репо: CMake superbuild + Python тесты + документация |
 | **Зависит от** | Все 8 репо выше |
 | **Что внутри** | CMakeLists.txt (FetchContent all), CMakePresets.json, Python/ (тесты), Doc/ (документация), MemoryBank/ (управление) |
@@ -175,7 +175,7 @@ graph LR
 ```
 E:\DSP-GPU\                          ← Windows (разработка)
 ├── DSP/                             ← мета-репо
-├── core/                            ← DrvGPU
+├── core/                            ← core
 ├── spectrum/                        ← fft_func + filters + lch_farrow
 ├── stats/                           ← statistics
 ├── linalg/                          ← vector_algebra + capon
@@ -188,8 +188,8 @@ E:\DSP-GPU\                          ← Windows (разработка)
 └── (та же структура)
 
 Базовый проект (не трогаем!):
-E:\C++\GPUWorkLib\                   ← Windows
-.../C++/GPUWorkLib\                  ← Debian
+E:\C++\DSP-GPU\                   ← Windows
+.../C++/DSP-GPU\                  ← Debian
 ```
 
 ---

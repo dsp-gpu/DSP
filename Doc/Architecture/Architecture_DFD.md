@@ -1,6 +1,6 @@
 # DFD — Data Flow Diagram
 
-> **Project**: GPUWorkLib
+> **Project**: DSP-GPU
 > **Date**: 2026-03-28
 > **Notation**: Gane-Sarson (процессы = прямоугольники с закруглёнными углами)
 
@@ -22,7 +22,7 @@
          ▼                                                    │
  ╔═══════════════════════════════════════════════════════════════════╗
  ║                                                                   ║
- ║                        GPUWorkLib                                 ║
+ ║                        DSP-GPU                                 ║
  ║                                                                   ║
  ║    [Params] ──→ [GPU Processing] ──→ [Results]                    ║
  ║                                                                   ║
@@ -346,7 +346,7 @@
 
 ---
 
-## Level 2 — DrvGPU Internal Data Flow
+## Level 2 — core Internal Data Flow
 
 ```
  ┌─────────────┐           ┌─────────────────┐

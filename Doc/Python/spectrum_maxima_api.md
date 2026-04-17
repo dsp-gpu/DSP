@@ -1,6 +1,6 @@
 # SpectrumMaximaFinder — Python API
 
-> **Модуль**: `gpuworklib.SpectrumMaximaFinder`
+> **Модуль**: `dsp_spectrum.SpectrumMaximaFinder`
 > **C++ класс**: `antenna_fft::SpectrumMaximaFinder`
 > **Обновлено**: 2026-02-14
 
@@ -16,12 +16,12 @@ GPU-ускоренный поиск ВСЕХ локальных максимум
 
 ```python
 import numpy as np
-import gpuworklib
+import dsp_spectrum
 
 # Настройка
-ctx = gpuworklib.GPUContext(0)
-fft = gpuworklib.FFTProcessor(ctx)
-finder = gpuworklib.SpectrumMaximaFinder(ctx)
+ctx = dsp_spectrum.GPUContext(0)
+fft = dsp_spectrum.FFTProcessor(ctx)
+finder = dsp_spectrum.SpectrumMaximaFinder(ctx)
 
 # Генерация сигнала (3 частоты)
 fs = 1000.0
@@ -45,7 +45,7 @@ print(f"Позиции бинов: {result['positions']}")
 ## Конструктор
 
 ```python
-finder = gpuworklib.SpectrumMaximaFinder(ctx)
+finder = dsp_spectrum.SpectrumMaximaFinder(ctx)
 ```
 
 | Параметр | Тип | Описание |
@@ -113,10 +113,10 @@ result = finder.find_all_maxima(
 ### Многолучевая обработка
 
 ```python
-ctx = gpuworklib.GPUContext(0)
-sig = gpuworklib.SignalGenerator(ctx)
-fft = gpuworklib.FFTProcessor(ctx)
-finder = gpuworklib.SpectrumMaximaFinder(ctx)
+ctx = dsp_spectrum.GPUContext(0)
+sig = dsp_spectrum.SignalGenerator(ctx)
+fft = dsp_spectrum.FFTProcessor(ctx)
+finder = dsp_spectrum.SpectrumMaximaFinder(ctx)
 
 # Генерация 8 лучей: 100, 200, 300, ..., 800 Гц
 signals = sig.generate_cw(freq=100, fs=4000, length=4096,

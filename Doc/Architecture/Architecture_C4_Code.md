@@ -1,18 +1,18 @@
 # C4 — Code-level Diagram
 
-> **Project**: GPUWorkLib
+> **Project**: DSP-GPU
 > **Date**: 2026-03-28
 > **Reference**: [c4model.com](https://c4model.com)
 > **Level**: 4 (Code) — классы, интерфейсы, сигнатуры методов
 
 ---
 
-## 1. DrvGPU — Core Classes
+## 1. core — Core Classes
 
 ### 1.1 IBackend (Abstract Interface)
 
 ```cpp
-// DrvGPU/interface/i_backend.hpp
+// core/interface/i_backend.hpp
 class IBackend {
 public:
     virtual ~IBackend() = default;
@@ -55,14 +55,14 @@ public:
 };
 ```
 
-### 1.2 DrvGPU (Main Driver)
+### 1.2 core (Main Driver)
 
 ```cpp
-// DrvGPU/include/drv_gpu.hpp
-class DrvGPU {
+// core/include/drv_gpu.hpp
+class core {
 public:
-    DrvGPU();
-    ~DrvGPU();
+    core();
+    ~core();
 
     void Initialize();
     void Cleanup();
@@ -86,7 +86,7 @@ private:
 ### 1.3 OpenCLBackend
 
 ```cpp
-// DrvGPU/backends/opencl/opencl_backend.hpp
+// core/backends/opencl/opencl_backend.hpp
 class OpenCLBackend : public IBackend {
 public:
     // Lifecycle
@@ -111,7 +111,7 @@ private:
 ### 1.4 MemoryManager & GPUBuffer\<T\>
 
 ```cpp
-// DrvGPU/memory/memory_manager.hpp
+// core/memory/memory_manager.hpp
 class MemoryManager {
 public:
     explicit MemoryManager(IBackend* backend);
@@ -131,7 +131,7 @@ private:
     std::atomic<size_t> total_bytes_{0};
 };
 
-// DrvGPU/memory/gpu_buffer.hpp
+// core/memory/gpu_buffer.hpp
 template<typename T>
 class GPUBuffer {
 public:
@@ -154,7 +154,7 @@ private:
 ### 1.5 GPUProfiler
 
 ```cpp
-// DrvGPU/services/gpu_profiler.hpp
+// core/services/gpu_profiler.hpp
 class GPUProfiler : public AsyncServiceBase<ProfilingMessage> {
 public:
     static GPUProfiler& GetInstance();
@@ -804,7 +804,7 @@ private:
 
 ```plantuml
 @startuml C4_ClassDiagram
-title GPUWorkLib — C4: Key Classes
+title DSP-GPU — C4: Key Classes
 
 interface IBackend {
     +Initialize(device_index: int)

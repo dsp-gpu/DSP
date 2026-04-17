@@ -1,8 +1,8 @@
-# GPUWorkLib Python API — ROCm Classes
+# DSP-GPU Python API — ROCm Classes
 
 > **Версия**: 1.0
 > **Дата**: 2026-02-24
-> **Модуль**: `gpuworklib` (собрать с `-DBUILD_PYTHON=ON -DENABLE_ROCM=ON`)
+> **Модуль**: `dsp_core` (собрать с `-DBUILD_PYTHON=ON -DENABLE_ROCM=ON`)
 > **Требует**: Linux + AMD GPU (ROCm/HIP)
 
 ---
@@ -10,18 +10,18 @@
 ## Сборка
 
 ```bash
-cmake -B build/debian-radeon9070 -DBUILD_PYTHON=ON -DENABLE_ROCM=ON
-cmake --build build/debian-radeon9070 -j4
+cmake -B build -DBUILD_PYTHON=ON -DENABLE_ROCM=ON
+cmake --build build -j4
 ```
 
-`.so` файл: `build/debian-radeon9070/python/gpuworklib.cpython-313-x86_64-linux-gnu.so`
+`.so` файл: `./DSP/Python/lib/dsp_core.cpython-313-x86_64-linux-gnu.so`
 
 ## Использование в Python
 
 ```python
 import sys
-sys.path.insert(0, 'build/debian-radeon9070/python')
-import gpuworklib
+sys.path.insert(0, './DSP/Python/lib')
+import dsp_core
 import numpy as np
 ```
 
@@ -38,7 +38,7 @@ sg render -c "python3 my_script.py"
 
 ```python
 # Конструктор
-ctx = gpuworklib.ROCmGPUContext(0)        # device_index=0
+ctx = dsp_core.ROCmGPUContext(0)        # device_index=0
 
 # Свойства (readonly)
 ctx.device_name     # str  — имя GPU, напр. "gfx1201"
@@ -60,7 +60,7 @@ GPU FIR фильтр (direct-form convolution, ROCm).
 
 ```python
 # Конструктор
-fir = gpuworklib.FirFilterROCm(ctx)
+fir = dsp_core.FirFilterROCm(ctx)
 
 # Настройка
 fir.set_coefficients([0.25, 0.5, 0.25])           # список float
@@ -97,11 +97,11 @@ fir.coefficients    # list[float]  — текущие коэффициенты
 ```python
 import numpy as np
 from scipy.signal import firwin
-import sys; sys.path.insert(0, 'build/debian-radeon9070/python')
-import gpuworklib
+import sys; sys.path.insert(0, './DSP/Python/lib')
+import dsp_core
 
-ctx = gpuworklib.ROCmGPUContext(0)
-fir = gpuworklib.FirFilterROCm(ctx)
+ctx = dsp_core.ROCmGPUContext(0)
+fir = dsp_core.FirFilterROCm(ctx)
 
 coeffs = firwin(64, 0.1)
 fir.set_coefficients(coeffs.tolist())
@@ -121,7 +121,7 @@ GPU IIR биквад-каскадный фильтр (DFII-Transposed, ROCm).
 
 ```python
 # Конструктор
-iir = gpuworklib.IirFilterROCm(ctx)
+iir = dsp_core.IirFilterROCm(ctx)
 
 # Настройка через список секций (biquad)
 iir.set_sections([
@@ -173,7 +173,7 @@ section = {'b0': ..., 'b1': ..., 'b2': ..., 'a1': ..., 'a2': ...}
 
 ```python
 # Конструктор
-proc = gpuworklib.LchFarrowROCm(ctx)
+proc = dsp_core.LchFarrowROCm(ctx)
 
 # Настройка
 proc.set_sample_rate(1e6)                  # Гц
@@ -234,7 +234,7 @@ LFM гетеродинный процессор (ROCm).
 
 ```python
 # Конструктор
-het = gpuworklib.HeterodyneROCm(ctx)
+het = dsp_core.HeterodyneROCm(ctx)
 
 # Настройка параметров ЛЧМ
 het.set_params(
@@ -285,7 +285,7 @@ GPU статистика комплексных сигналов (ROCm, один
 
 ```python
 # Конструктор
-proc = gpuworklib.StatisticsProcessor(ctx)
+proc = dsp_core.StatisticsProcessor(ctx)
 
 # Данные: numpy complex64 (beam_count × n_point)
 data = np.random.randn(4096).astype(np.complex64)  # 4 луча × 1024 т.
@@ -342,16 +342,16 @@ GPU speedup при 4 лучах × 131072 точек: **18.7×** быстрее 
 
 ```python
 import numpy as np
-import sys; sys.path.insert(0, 'build/debian-radeon9070/python')
-import gpuworklib
+import sys; sys.path.insert(0, './DSP/Python/lib')
+import dsp_core
 
 # Один контекст на все объекты
-ctx = gpuworklib.ROCmGPUContext(0)
+ctx = dsp_core.ROCmGPUContext(0)
 print(f"GPU: {ctx.device_name}")
 
 # Пайплайн: фильтр → статистика
-fir  = gpuworklib.FirFilterROCm(ctx)
-stat = gpuworklib.StatisticsProcessor(ctx)
+fir  = dsp_core.FirFilterROCm(ctx)
+stat = dsp_core.StatisticsProcessor(ctx)
 
 from scipy.signal import firwin
 fir.set_coefficients(firwin(64, 0.1).tolist())

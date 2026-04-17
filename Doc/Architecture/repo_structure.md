@@ -51,7 +51,7 @@ dsp-gpu/{repo}/
 
 **Проблема**: `include/` — PUBLIC директория в CMake. Если `*_kernels_rocm.hpp` лежит в `include/`, она **протечёт** к потребителям через `target_include_directories(... PUBLIC include)`.
 
-**Решение** (по аналогии с .cl файлами в GPUWorkLib):
+**Решение** (по аналогии с .cl файлами в DSP-GPU):
 - `.cl` файлы уже лежат в `modules/{module}/kernels/` (отдельно от include)
 - `.hpp` kernel sources → `kernels/rocm/` (та же логика)
 - CMake: `target_include_directories(... PRIVATE kernels/)`
@@ -86,7 +86,7 @@ dsp-gpu/core/
 │
 ├── include/
 │   └── dsp/
-│       ├── drv_gpu.hpp            ← главный интерфейс DrvGPU
+│       ├── drv_gpu.hpp            ← главный интерфейс core
 │       ├── backends/
 │       │   ├── rocm_backend.hpp
 │       │   └── opencl_backend.hpp

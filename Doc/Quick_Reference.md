@@ -1,4 +1,4 @@
-# GPUWorkLib — Quick Reference
+# DSP-GPU — Quick Reference
 
 > Краткий справочник публичных API всех модулей.
 > Порядок: по приоритету использования (от обработки до инфраструктуры).
@@ -20,7 +20,7 @@
 | 7 | [LCH Farrow](#7-lch-farrow) | Дробная задержка | [Doc/Modules/lch_farrow/](Modules/lch_farrow/) |
 | 8 | [Heterodyne](#8-heterodyne) | LFM Dechirp pipeline | [Doc/Modules/heterodyne/](Modules/heterodyne/) |
 | 9 | [FM Correlator](#9-fm-correlator) | FM-корреляция с M-sequence (ROCm, протестирован) | [Doc/Modules/fm_correlator/](Modules/fm_correlator/) |
-| 10 | [DrvGPU](#10-drvgpu) | Ядро: backend, память, сервисы | [Doc/DrvGPU/](DrvGPU/) |
+| 10 | [core](#10-drvgpu) | Ядро: backend, память, сервисы | [Doc/core/](core/) |
 
 ---
 
@@ -31,7 +31,7 @@
 
 ```cpp
 // Создание
-FFTProcessor proc(backend);          // backend — IBackend* из DrvGPU
+FFTProcessor proc(backend);          // backend — IBackend* из core
 
 // Params
 FFTProcessorParams params;
@@ -346,16 +346,16 @@ float v = res.at(signal, shift, point);      // accessor по индексам
 
 ---
 
-## 10. DrvGPU
+## 10. core
 
-**Заголовок**: `DrvGPU/include/drv_gpu.hpp`
+**Заголовок**: `core/include/drv_gpu.hpp`
 
 ### Одиночный GPU
 
 ```cpp
 // Инициализация
-DrvGPU gpu(BackendType::OPENCL, 0);  // индекс GPU
-DrvGPU gpu(BackendType::ROCM, 0);
+core gpu(BackendType::OPENCL, 0);  // индекс GPU
+core gpu(BackendType::ROCM, 0);
 
 // Информация
 std::string name = gpu.GetDeviceName();
@@ -378,8 +378,8 @@ mgr.InitializeAll(BackendType::OPENCL);         // все доступные GPU
 mgr.InitializeSpecific(BackendType::OPENCL, {0, 1});
 
 size_t n = mgr.GetGPUCount();
-DrvGPU& g0 = mgr.GetGPU(0);
-DrvGPU& gNext = mgr.GetNextGPU();              // Round-Robin
+core& g0 = mgr.GetGPU(0);
+core& gNext = mgr.GetNextGPU();              // Round-Robin
 ```
 
 ### GPUProfiler

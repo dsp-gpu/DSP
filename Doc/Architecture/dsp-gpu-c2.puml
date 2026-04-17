@@ -5,12 +5,12 @@ LAYOUT_TOP_DOWN()
 LAYOUT_WITH_LEGEND()
 !theme C4_united from <C4/themes>
 
-title GPUWorkLib — C2: Container Diagram
+title DSP-GPU — C2: Container Diagram
 
 Person(cpp_dev, "C++ Engineer", "Разработчик ЦОС-приложений")
 Person(py_sci, "Python Scientist", "Исследователь / аналитик данных")
 
-System_Boundary(gpuworklib, "GPUWorkLib") {
+System_Boundary(dsp-gpu, "DSP-GPU") {
 
     Container(pybind, "Python Bindings", "pybind11",
               "gpu_worklib.pyd\nNumPy ↔ cl_mem")

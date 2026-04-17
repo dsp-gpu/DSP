@@ -12,10 +12,10 @@
 ### SymmetrizeMode (enum)
 
 ```python
-import gpuworklib
+import dsp_linalg
 
-gpuworklib.SymmetrizeMode.Roundtrip   # CPU: download → symmetrize → upload
-gpuworklib.SymmetrizeMode.GpuKernel   # GPU: hiprtc in-place kernel (быстрее)
+dsp_linalg.SymmetrizeMode.Roundtrip   # CPU: download → symmetrize → upload
+dsp_linalg.SymmetrizeMode.GpuKernel   # GPU: hiprtc in-place kernel (быстрее)
 ```
 
 | Режим | Описание | Когда использовать |
@@ -28,16 +28,16 @@ gpuworklib.SymmetrizeMode.GpuKernel   # GPU: hiprtc in-place kernel (быстр�
 ### Конструктор
 
 ```python
-import gpuworklib
+import dsp_linalg
 
-ctx = gpuworklib.ROCmGPUContext(device_index=0)
+ctx = dsp_linalg.ROCmGPUContext(device_index=0)
 
 # По умолчанию — GpuKernel mode
-inverter = gpuworklib.CholeskyInverterROCm(ctx)
+inverter = dsp_linalg.CholeskyInverterROCm(ctx)
 
 # Явный выбор режима
-inverter = gpuworklib.CholeskyInverterROCm(ctx, gpuworklib.SymmetrizeMode.GpuKernel)
-inverter_rt = gpuworklib.CholeskyInverterROCm(ctx, gpuworklib.SymmetrizeMode.Roundtrip)
+inverter = dsp_linalg.CholeskyInverterROCm(ctx, dsp_linalg.SymmetrizeMode.GpuKernel)
+inverter_rt = dsp_linalg.CholeskyInverterROCm(ctx, dsp_linalg.SymmetrizeMode.Roundtrip)
 ```
 
 **Параметры**:
@@ -54,10 +54,10 @@ inverter_rt = gpuworklib.CholeskyInverterROCm(ctx, gpuworklib.SymmetrizeMode.Rou
 
 ```python
 import numpy as np
-import gpuworklib
+import dsp_linalg
 
-ctx = gpuworklib.ROCmGPUContext(0)
-inverter = gpuworklib.CholeskyInverterROCm(ctx)
+ctx = dsp_linalg.ROCmGPUContext(0)
+inverter = dsp_linalg.CholeskyInverterROCm(ctx)
 
 n = 341
 # Создать положительно определённую матрицу
@@ -130,12 +130,12 @@ for k in range(batch_count):
 Динамическая смена режима симметризации.
 
 ```python
-import gpuworklib
+import dsp_linalg
 
-inv = gpuworklib.CholeskyInverterROCm(ctx, gpuworklib.SymmetrizeMode.GpuKernel)
+inv = dsp_linalg.CholeskyInverterROCm(ctx, dsp_linalg.SymmetrizeMode.GpuKernel)
 print(inv.get_symmetrize_mode())  # SymmetrizeMode.GpuKernel
 
-inv.set_symmetrize_mode(gpuworklib.SymmetrizeMode.Roundtrip)
+inv.set_symmetrize_mode(dsp_linalg.SymmetrizeMode.Roundtrip)
 print(inv.get_symmetrize_mode())  # SymmetrizeMode.Roundtrip
 
 # Инверсия работает после смены режима
@@ -160,7 +160,7 @@ A_inv = inv.invert_cpu(A.flatten(), n)
 
 - **ROCm** — AMD GPU (проверено на Radeon 9070)
 - **rocBLAS** + **rocSOLVER** + **hiprtc** (входит в ROCm SDK)
-- `gpuworklib` собран с `-DENABLE_ROCM=ON -DBUILD_PYTHON=ON`
+- `dsp_linalg` собран с `-DENABLE_ROCM=ON -DBUILD_PYTHON=ON`
 
 ### Ограничения
 
@@ -173,6 +173,6 @@ A_inv = inv.invert_cpu(A.flatten(), n)
 
 ### Связанные модули
 
-- `gpuworklib.ROCmGPUContext` — ROCm контекст
-- `gpuworklib.StatisticsProcessor` — статистика сигналов (тоже ROCm)
-- `gpuworklib.LchFarrowROCm` — задержка Farrow (ROCm)
+- `dsp_linalg.ROCmGPUContext` — ROCm контекст
+- `dsp_linalg.StatisticsProcessor` — статистика сигналов (тоже ROCm)
+- `dsp_linalg.LchFarrowROCm` — задержка Farrow (ROCm)

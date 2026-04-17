@@ -1,6 +1,6 @@
 # Seq — Sequence Diagrams
 
-> **Project**: GPUWorkLib
+> **Project**: DSP-GPU
 > **Date**: 2026-03-28
 > **Notation**: UML Sequence Diagrams (ASCII + PlantUML)
 
@@ -10,7 +10,7 @@
 
 | # | Diagram | Description |
 |---|---------|-------------|
-| Seq-1 | DrvGPU Initialization | GPU device initialization lifecycle |
+| Seq-1 | core Initialization | GPU device initialization lifecycle |
 | Seq-2 | Signal Generation → FFT → Peak | Typical signal processing pipeline |
 | Seq-3 | Heterodyne LFM Dechirp | Full dechirp pipeline (conj, multiply, FFT, peak) |
 | Seq-4 | Python API Usage | Typical Python-user scenario |
@@ -22,14 +22,14 @@
 
 ---
 
-## Seq-1: DrvGPU Initialization
+## Seq-1: core Initialization
 
 Инициализация одного GPU-устройства.
 
 ```
- User App          DrvGPU          GPUConfig       OpenCLBackend      OpenCLCore     ConsoleOutput   Logger
+ User App          core          GPUConfig       OpenCLBackend      OpenCLCore     ConsoleOutput   Logger
     │                 │                │                 │                │                │            │
-    │ DrvGPU()        │                │                 │                │                │            │
+    │ core()        │                │                 │                │                │            │
     ├────────────────▶│                │                 │                │                │            │
     │                 │ LoadConfig()   │                 │                │                │            │
     │                 ├───────────────▶│                 │                │                │            │
@@ -59,7 +59,7 @@
     │                 │  Print("GPU initialized")        │                │                │            │
     │                 ├──────────────────────────────────────────────────────────────────▶│            │
     │                 │                │                 │                │                │            │
-    │                 │  LOG_INFO("DrvGPU ready")        │                │                │            │
+    │                 │  LOG_INFO("core ready")        │                │                │            │
     │                 ├───────────────────────────────────────────────────────────────────────────────▶│
     │  ◄──── OK ──────┤                │                 │                │                │            │
     │                 │                │                 │                │                │            │
@@ -195,7 +195,7 @@
     │                    │                │                │               │
     │ ctx = GPUContext(0)│                │                │               │
     ├───────────────────▶│                │                │               │
-    │                    │ DrvGPU()       │                │               │
+    │                    │ core()       │                │               │
     │                    │ Initialize()   │                │               │
     │ ◄── ctx ──────────┤                │                │               │
     │                    │                │                │               │
@@ -261,7 +261,7 @@
 Обработка большого массива данных на нескольких GPU.
 
 ```
- User App         BatchManager       DrvGPU[0]        DrvGPU[1]        DrvGPU[N]
+ User App         BatchManager       core[0]        core[1]        core[N]
     │                  │                │                │                │
     │ CalcOptBatch()   │                │                │                │
     ├─────────────────▶│                │                │                │
@@ -426,7 +426,7 @@ participant "PyHeterodyneDechirp" as HD
 
 Py -> Ctx: GPUContext(device_index=0)
 activate Ctx
-Ctx -> Ctx: DrvGPU::Initialize()
+Ctx -> Ctx: core::Initialize()
 Ctx --> Py: ctx
 deactivate Ctx
 

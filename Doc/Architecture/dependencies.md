@@ -1,8 +1,8 @@
 # DSP-GPU — Граф зависимостей
 
-> **Источник**: автоматический анализ CMakeLists.txt + #include всех 12 модулей GPUWorkLib
+> **Источник**: автоматический анализ CMakeLists.txt + #include всех 12 модулей DSP-GPU
 > **Дата**: 2026-04-12
-> **Базовый проект**: GPUWorkLib (E:\C++\GPUWorkLib)
+> **Базовый проект**: DSP-GPU (E:\C++\DSP-GPU)
 
 ---
 
@@ -12,7 +12,7 @@
 %%{init: {'theme': 'dark', 'themeVariables': {'lineColor': '#90caf9', 'textColor': '#e0e0e0', 'primaryColor': '#1168bd', 'primaryTextColor': '#ffffff', 'primaryBorderColor': '#90caf9', 'secondaryColor': '#438dd5', 'tertiaryColor': '#333333'}}}%%
 graph TD
     subgraph "Level 0 — Core Driver"
-        CORE["<b>core</b><br/>DrvGPU<br/><i>OpenCL, HIP, plog</i>"]
+        CORE["<b>core</b><br/>core<br/><i>OpenCL, HIP, plog</i>"]
     end
 
     subgraph "Level 1 — Base Processing"
@@ -88,9 +88,9 @@ graph TD
 | Репо | Зависит от | Причина (из анализа кода) |
 |------|-----------|--------------------------|
 | **core** | — | Базовый драйвер, ни от кого не зависит |
-| **spectrum** | core | fft_func, filters, lch_farrow используют DrvGPU |
-| **stats** | core | statistics использует DrvGPU + GpuContext |
-| **linalg** | core | vector_algebra + capon используют DrvGPU + GpuContext |
+| **spectrum** | core | fft_func, filters, lch_farrow используют core |
+| **stats** | core | statistics использует core + GpuContext |
+| **linalg** | core | vector_algebra + capon используют core + GpuContext |
 | **signal_generators** | core, spectrum | `DelayedFormSignalGeneratorROCm` использует `lch_farrow` (из spectrum) |
 | **heterodyne** | core, spectrum, signal_generators | `heterodyne_dechirp.cpp` импортирует `spectrum_processor_factory.hpp` из fft_func + использует signal_generators |
 | **radar** | core, spectrum, stats | range_angle использует hipFFT (как spectrum), fm_correlator использует hipFFT. Stats для обработки |
@@ -114,11 +114,11 @@ graph TD
 
 ---
 
-## 3. Маппинг: GPUWorkLib modules → DSP-GPU repos
+## 3. Маппинг: DSP-GPU modules → DSP-GPU repos
 
-| GPUWorkLib модуль | DSP-GPU репо | Уровень |
+| DSP-GPU модуль | DSP-GPU репо | Уровень |
 |-------------------|-------------|---------|
-| `DrvGPU/` | **core** | 0 |
+| `core/` | **core** | 0 |
 | `modules/fft_func/` | **spectrum** | 1 |
 | `modules/filters/` | **spectrum** | 1 |
 | `modules/lch_farrow/` | **spectrum** | 1 |
@@ -153,7 +153,7 @@ graph TD
 
 ---
 
-## 5. Обнаруженные связи (из анализа кода GPUWorkLib)
+## 5. Обнаруженные связи (из анализа кода DSP-GPU)
 
 ### Ключевые #include зависимости
 
@@ -187,5 +187,5 @@ graph TD
 
 ---
 
-*Сгенерировано: 2026-04-12 автоматическим анализом GPUWorkLib*
+*Сгенерировано: 2026-04-12 автоматическим анализом DSP-GPU*
 *Инструменты: Explore agent (37 tool calls) + sequential-thinking*

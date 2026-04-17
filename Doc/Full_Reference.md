@@ -1,4 +1,4 @@
-# GPUWorkLib — Full Reference
+# DSP-GPU — Full Reference
 
 > Развёрнутое описание всех публичных классов, структур, перечислений и методов.
 > Назначение: читатель должен понять **что есть**, **зачем нужно** и **как использовать**.
@@ -18,7 +18,7 @@
 7. [LCH Farrow](#7-lch-farrow)
 8. [Heterodyne](#8-heterodyne)
 9. [FM Correlator](#9-fm-correlator)
-10. [DrvGPU — Core Driver](#10-drvgpu--core-driver)
+10. [core — Core Driver](#10-drvgpu--core-driver)
 11. [Python API](#11-python-api)
 
 ---
@@ -43,7 +43,7 @@ modules/fft_processor/include/fft_processor.hpp
 explicit FFTProcessor(drv_gpu_lib::IBackend* backend);
 ```
 
-Принимает указатель на бэкенд GPU. Бэкенд получается через `DrvGPU::GetBackend()`.
+Принимает указатель на бэкенд GPU. Бэкенд получается через `core::GetBackend()`.
 Объект **move-only** — нельзя копировать.
 
 ---
@@ -904,23 +904,23 @@ FMCorrelatorResult ProcessWithBatching(const std::vector<float>& inp, int total_
 
 ---
 
-## 10. DrvGPU — Core Driver
+## 10. core — Core Driver
 
-> **Путь**: `DrvGPU/`
-> **Документация**: [DrvGPU/Architecture.md](DrvGPU/Architecture.md) · [DrvGPU/Classes.md](DrvGPU/Classes.md)
+> **Путь**: `core/`
+> **Документация**: [core/Architecture.md](core/Architecture.md) · [core/Classes.md](core/Classes.md)
 
 Ядро системы. Предоставляет единую абстракцию GPU (OpenCL и ROCm), управляет памятью, очередями команд, профилированием и логированием. Все модули получают доступ к GPU исключительно через `IBackend*`.
 
-### Класс `DrvGPU`
+### Класс `core`
 
 ```
-DrvGPU/include/drv_gpu.hpp
+core/include/drv_gpu.hpp
 ```
 
 Единственный GPU. **Move-only** — нельзя копировать.
 
 ```cpp
-DrvGPU(BackendType backend_type, int device_index = 0);
+core(BackendType backend_type, int device_index = 0);
 
 // Информация
 std::string GetDeviceName() const;
@@ -944,7 +944,7 @@ void ResetStatistics();
 ### Класс `GPUManager`
 
 ```
-DrvGPU/include/gpu_manager.hpp
+core/include/gpu_manager.hpp
 ```
 
 Менеджер для Multi-GPU систем (до 10 GPU).
@@ -955,11 +955,11 @@ mgr.InitializeAll(BackendType::OPENCL);
 mgr.InitializeSpecific(BackendType::ROCM, {0, 1, 2});
 
 // Доступ к GPU
-DrvGPU& g = mgr.GetGPU(0);
-DrvGPU& g = mgr.GetNextGPU();           // Round-Robin балансировка
-DrvGPU& g = mgr.GetLeastLoadedGPU();    // по загрузке
+core& g = mgr.GetGPU(0);
+core& g = mgr.GetNextGPU();           // Round-Robin балансировка
+core& g = mgr.GetLeastLoadedGPU();    // по загрузке
 size_t n  = mgr.GetGPUCount();
-std::vector<DrvGPU*> all = mgr.GetAllGPUs();
+std::vector<core*> all = mgr.GetAllGPUs();
 
 // Для профайлера
 GPUReportInfo info = mgr.GetGPUReportInfo(gpu_id);
@@ -981,7 +981,7 @@ enum class BackendType {
 ### Интерфейс `IBackend`
 
 ```
-DrvGPU/interface/i_backend.hpp
+core/interface/i_backend.hpp
 ```
 
 Абстрактный интерфейс для всех бэкендов. Модули работают только через этот интерфейс.
@@ -1026,7 +1026,7 @@ virtual size_t GetLocalMemorySize() const = 0;
 ### Сервис `GPUProfiler`
 
 ```
-DrvGPU/services/gpu_profiler.hpp
+core/services/gpu_profiler.hpp
 ```
 
 Профилировщик GPU задач. **Обязательно** вызвать `SetGPUInfo()` до `Start()`.
@@ -1053,7 +1053,7 @@ profiler.ExportJSON("report.json");
 ### Сервис `ConsoleOutput`
 
 ```
-DrvGPU/services/console_output.hpp
+core/services/console_output.hpp
 ```
 
 Мультиgpu-безопасный вывод в консоль через async очередь.
@@ -1070,7 +1070,7 @@ con.Print(gpu_id, "FFTProcessor", "FFT completed");
 ### Интерфейс `IComputeModule`
 
 ```
-DrvGPU/interface/i_compute_module.hpp
+core/interface/i_compute_module.hpp
 ```
 
 Базовый интерфейс для всех вычислительных модулей (опционально):
@@ -1087,7 +1087,7 @@ virtual IBackend* GetBackend() const = 0;
 ### Шаблон `InputData<T>`
 
 ```
-DrvGPU/interface/input_data.hpp
+core/interface/input_data.hpp
 ```
 
 Универсальная обёртка для передачи данных. `T` — одно из:
@@ -1108,7 +1108,7 @@ InputData<cl_mem>  input_cl{cl_buffer};
 > **Документация**: [Python/](Python/) · [Python_test/Full.md](Python_test/Full.md)
 > **Биндинги**: `python/gpu_worklib_bindings.cpp` (pybind11)
 
-GPUWorkLib предоставляет полный Python API через **pybind11**. Каждый модуль обёрнут в Python класс с NumPy-совместимым интерфейсом.
+DSP-GPU предоставляет полный Python API через **pybind11**. Каждый модуль обёрнут в Python класс с NumPy-совместимым интерфейсом.
 
 ### Сборка и установка
 
@@ -1156,8 +1156,8 @@ py::class_<PyStatisticsProcessor>(m, "StatisticsProcessor")
 
 | Python класс | C++ класс | Файл биндинга | API документация |
 |-------------|-----------|---------------|------------------|
-| `GPUContext` | `DrvGPU` | `gpu_worklib_bindings.cpp` | — |
-| `ROCmGPUContext` | `DrvGPU (ROCm)` | `gpu_worklib_bindings.cpp` | [Python/rocm_modules_api.md](Python/rocm_modules_api.md) |
+| `GPUContext` | `core` | `gpu_worklib_bindings.cpp` | — |
+| `ROCmGPUContext` | `core (ROCm)` | `gpu_worklib_bindings.cpp` | [Python/rocm_modules_api.md](Python/rocm_modules_api.md) |
 | `SignalGenerator` | `ISignalGenerator` | `py_signal_gen.hpp` | [Python/signal_generators_api.md](Python/signal_generators_api.md) |
 | `SpectrumMaximaFinder` | `ISpectrumProcessor` | `py_fft_maxima.hpp` | [Python/spectrum_maxima_api.md](Python/spectrum_maxima_api.md) |
 | `FirFilter` | `FirFilter` | `py_filters.hpp` | [Python/rocm_modules_api.md](Python/rocm_modules_api.md) |

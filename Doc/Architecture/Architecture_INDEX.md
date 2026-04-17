@@ -1,4 +1,4 @@
-# GPUWorkLib — Architecture Documentation Index
+# DSP-GPU — Architecture Documentation Index
 
 > **Date**: 2026-03-28
 > **Author**: Кодо (AI Assistant)
@@ -10,8 +10,8 @@
 
 | # | Документ | Уровень | Описание |
 |---|----------|---------|----------|
-| 1 | [C1 — System Context](Architecture_C1_SystemContext.md) | Самый высокий | Акторы, внешние системы, границы GPUWorkLib |
-| 2 | [C2 — Container Diagram](Architecture_C2_Container.md) | Контейнеры | DrvGPU, модули, биндинги, зависимости |
+| 1 | [C1 — System Context](Architecture_C1_SystemContext.md) | Самый высокий | Акторы, внешние системы, границы DSP-GPU |
+| 2 | [C2 — Container Diagram](Architecture_C2_Container.md) | Контейнеры | core, модули, биндинги, зависимости |
 | 3 | [C3 — Component Diagram](Architecture_C3_Component.md) | Компоненты | Классы внутри каждого контейнера |
 | 4 | [C4 — Code Diagram](Architecture_C4_Code.md) | Код | Интерфейсы, сигнатуры, UML |
 | 5 | [DFD — Data Flow Diagram](Architecture_DFD.md) | Потоки данных | Level 0/1/2 + pipelines |
@@ -23,11 +23,11 @@
 
 | # | Сценарий | Участники |
 |---|----------|-----------|
-| Seq-1 | DrvGPU Initialization | DrvGPU → GPUConfig → OpenCLBackend → Logger |
+| Seq-1 | core Initialization | core → GPUConfig → OpenCLBackend → Logger |
 | Seq-2 | Signal → FFT → Peak | Factory → CwGen → FFTProcessor → SpectrumProc |
 | Seq-3 | Heterodyne Dechirp | HeterodyneDechirp → LfmConjGen → FFT → Maxima |
 | Seq-4 | Python API Usage | GPUContext → PySigGen → PyFFT → PyHeterodyne |
-| Seq-5 | Multi-GPU Batch | BatchManager → DrvGPU[0..N] → Merge |
+| Seq-5 | Multi-GPU Batch | BatchManager → core[0..N] → Merge |
 | Seq-6 | Profiling & Export | Module → GPUProfiler → AsyncQueue → FileSystem |
 
 ---
@@ -36,7 +36,7 @@
 
 | # | Модуль | Backend | Статус | Описание |
 |---|--------|---------|--------|----------|
-| 0 | **DrvGPU** | OpenCL / ROCm / Hybrid | 🟢 Active | Ядро: backends, память, profiler, services |
+| 0 | **core** | OpenCL / ROCm / Hybrid | 🟢 Active | Ядро: backends, память, profiler, services |
 | 1 | **fft_func** | ROCm (hipFFT) | 🟢 Active | Пакетный FFT + поиск максимумов спектра |
 | 2 | **Statistics** | ROCm only | 🟢 Active | Welford mean/var, медиана, radix sort |
 | 3 | **Vector Algebra** | ROCm (rocsolver) | 🟢 Active | Cholesky POTRF/POTRI инверсия |
@@ -53,7 +53,7 @@
 
 | Документ | Описание |
 |----------|----------|
-| DrvGPU_Design_C4.md | C4 только для DrvGPU (ранняя версия, удалён) |
+| DrvGPU_Design_C4.md | C4 только для core (ранняя версия, удалён) |
 | GPUWorkLib_Design_C4_Full.md | Предыдущая полная C4 (до Statistics/VectorAlgebra, удалён) |
 | Disane C4.md | Справочный пример C4-модели (удалён) |
 

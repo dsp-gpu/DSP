@@ -1,4 +1,4 @@
-# GPUWorkLib — Documentation Index
+# DSP-GPU — Documentation Index
 
 > Главный индекс документации проекта.
 > Здесь: навигация по всем разделам, статус модулей, структура файлов.
@@ -41,7 +41,7 @@
 
 | # | Модуль | Статус | Quick | Full | Подробная документация |
 |---|--------|--------|-------|------|------------------------|
-| 10 | **DrvGPU** | 🟢 Active | [QR §10](Quick_Reference.md#10-drvgpu) | [FR §10](Full_Reference.md#10-drvgpu--core-driver) | [DrvGPU/Architecture.md](DrvGPU/Architecture.md) |
+| 10 | **core** | 🟢 Active | [QR §10](Quick_Reference.md#10-drvgpu) | [FR §10](Full_Reference.md#10-drvgpu--core-driver) | [core/Architecture.md](core/Architecture.md) |
 
 ---
 
@@ -61,17 +61,17 @@
 | Heterodyne | [heterodyne/Full.md](Modules/heterodyne/Full.md) | [heterodyne/Quick.md](Modules/heterodyne/Quick.md) | |
 | FM Correlator | [fm_correlator/Full.md](Modules/fm_correlator/Full.md) | [fm_correlator/Quick.md](Modules/fm_correlator/Quick.md) | |
 
-### `Doc/DrvGPU/` — документация ядра
+### `Doc/core/` — документация ядра
 
 | Документ | Описание |
 |----------|----------|
-| [Architecture.md](DrvGPU/Architecture.md) | Полная архитектура DrvGPU: слои, паттерны, зависимости |
-| [Classes.md](DrvGPU/Classes.md) | Справочник всех 50+ классов с методами |
-| [Quick.md](DrvGPU/Quick.md) | Краткий старт: основные классы и паттерны |
-| [Memory.md](DrvGPU/Memory.md) | Система памяти GPU: GPUBuffer, SVMBuffer, HIPBuffer |
-| [OpenCL.md](DrvGPU/OpenCL.md) | OpenCL backend: командные очереди, профилирование |
-| [Services/Full.md](DrvGPU/Services/Full.md) | Все сервисы: GPUProfiler, ConsoleOutput, BatchManager |
-| [Services/Quick.md](DrvGPU/Services/Quick.md) | Краткий справочник сервисов |
+| [Architecture.md](core/Architecture.md) | Полная архитектура core: слои, паттерны, зависимости |
+| [Classes.md](core/Classes.md) | Справочник всех 50+ классов с методами |
+| [Quick.md](core/Quick.md) | Краткий старт: основные классы и паттерны |
+| [Memory.md](core/Memory.md) | Система памяти GPU: GPUBuffer, SVMBuffer, HIPBuffer |
+| [OpenCL.md](core/OpenCL.md) | OpenCL backend: командные очереди, профилирование |
+| [Services/Full.md](core/Services/Full.md) | Все сервисы: GPUProfiler, ConsoleOutput, BatchManager |
+| [Services/Quick.md](core/Services/Quick.md) | Краткий справочник сервисов |
 
 ---
 
@@ -189,17 +189,17 @@ python/
 ## Структура проекта
 
 ```
-GPUWorkLib/
+DSP-GPU/
 ├── Doc/                         # ← Эта папка (документация)
 │   ├── INDEX.md                 #   Главный индекс (этот файл)
 │   ├── Quick_Reference.md       #   Краткий справочник API
 │   ├── Full_Reference.md        #   Полный справочник API
 │   ├── Architecture/            #   C4 диаграммы
-│   ├── DrvGPU/                  #   Документация ядра
+│   ├── core/                  #   Документация ядра
 │   ├── Modules/                 #   Документация C++ модулей
 │   ├── Python/                  #   Python API документация
 │   └── Python_test/             #   Описание Python тестов
-├── DrvGPU/                      # Ядро: OpenCL/ROCm абстракция
+├── core/                      # Ядро: OpenCL/ROCm абстракция
 ├── modules/                     # Вычислительные модули
 │   ├── fft_processor/
 │   ├── statistics/

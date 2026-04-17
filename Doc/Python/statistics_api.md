@@ -2,7 +2,7 @@
 
 > GPU-статистика для многолучевых комплексных сигналов (ROCm)
 
-**Модуль**: `gpuworklib.StatisticsProcessor`
+**Модуль**: `dsp_stats.StatisticsProcessor`
 **Платформа**: Linux + AMD GPU (ROCm/HIP), `-DENABLE_ROCM=ON`
 **Источник**: `python/py_statistics.hpp`
 
@@ -12,12 +12,12 @@
 
 ```python
 import sys
-sys.path.insert(0, 'build/debian-radeon9070/python')
-import gpuworklib
+sys.path.insert(0, './DSP/Python/lib')
+import dsp_stats
 import numpy as np
 
-ctx  = gpuworklib.ROCmGPUContext(0)
-proc = gpuworklib.StatisticsProcessor(ctx)
+ctx  = dsp_stats.ROCmGPUContext(0)
+proc = dsp_stats.StatisticsProcessor(ctx)
 
 beam_count, n_point = 4, 65536
 data = (np.random.randn(beam_count * n_point) +
@@ -34,7 +34,7 @@ for r in results:
 ## Конструктор
 
 ```python
-proc = gpuworklib.StatisticsProcessor(ctx)
+proc = dsp_stats.StatisticsProcessor(ctx)
 ```
 
 | Параметр | Тип | Описание |
@@ -185,12 +185,12 @@ def compute_median_float(
 
 ```python
 import sys
-sys.path.insert(0, 'build/debian-radeon9070/python')
-import gpuworklib
+sys.path.insert(0, './DSP/Python/lib')
+import dsp_stats
 import numpy as np
 
-ctx  = gpuworklib.ROCmGPUContext(0)
-proc = gpuworklib.StatisticsProcessor(ctx)
+ctx  = dsp_stats.ROCmGPUContext(0)
+proc = dsp_stats.StatisticsProcessor(ctx)
 
 beam_count, n_point = 4, 65536
 rng  = np.random.default_rng(42)

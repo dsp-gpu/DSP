@@ -1,6 +1,6 @@
 # DSP-GPU Architecture
 
-> **Источник данных**: автоматический анализ GPUWorkLib (880 файлов, 110K LOC)
+> **Источник данных**: автоматический анализ DSP-GPU (880 файлов, 110K LOC)
 > **Дата**: 2026-04-12
 > **Статус**: Фаза 0 — базовая архитектура для обсуждения
 
@@ -22,4 +22,4 @@
   core → linalg → capon ─────────────────────────────→ strategies
 ```
 
-Исходный проект: `GPUWorkLib` (E:\C++\GPUWorkLib на Windows, .../C++/GPUWorkLib на Debian)
+Исходный проект: `DSP-GPU` (E:\C++\DSP-GPU на Windows, .../C++/DSP-GPU на Debian)

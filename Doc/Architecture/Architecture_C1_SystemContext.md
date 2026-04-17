@@ -1,6 +1,6 @@
 # C1 — System Context Diagram
 
-> **Project**: GPUWorkLib
+> **Project**: DSP-GPU
 > **Date**: 2026-03-28
 > **Reference**: [c4model.com](https://c4model.com)
 > **Level**: 1 (System Context) — самый высокий уровень абстракции
@@ -9,7 +9,7 @@
 
 ## 1. Описание
 
-**GPUWorkLib** — библиотека GPU-вычислений для цифровой обработки сигналов (ЦОС).
+**DSP-GPU** — библиотека GPU-вычислений для цифровой обработки сигналов (ЦОС).
 Предоставляет модули генерации, FFT, фильтрации, гетеродинирования и спектрального анализа.
 
 ---
@@ -33,7 +33,7 @@
  ┌──────────────────────────────────────────────────────────────────────┐
  │                                                                      │
  │                    ╔══════════════════════════╗                       │
- │                    ║      GPUWorkLib          ║                       │
+ │                    ║      DSP-GPU          ║                       │
  │                    ║                          ║                       │
  │                    ║  GPU Signal Processing   ║                       │
  │                    ║  Library                 ║                       │
@@ -94,9 +94,9 @@
 ## 4. Границы системы
 
 ```
-                    ┌─── Граница GPUWorkLib ───────────────────────┐
+                    ┌─── Граница DSP-GPU ───────────────────────┐
                     │                                               │
-  User Code ──────▶ │  DrvGPU + Modules + Python Bindings         │
+  User Code ──────▶ │  core + Modules + Python Bindings         │
                     │                                               │
                     │  Ответственность:                             │
                     │  ✅ Абстракция GPU (multi-backend)            │
@@ -131,13 +131,13 @@ LAYOUT_TOP_DOWN()
 LAYOUT_WITH_LEGEND()
 !theme C4_united from <C4/themes>
 
-title GPUWorkLib — C1: System Context Diagram
+title DSP-GPU — C1: System Context Diagram
 
 Person(cpp_dev, "C++ Engineer", "Разработчик ЦОС-приложений")
 Person(py_sci, "Python Scientist", "Исследователь / аналитик данных")
 Person(ci_cd, "CI/CD Pipeline", "Автоматическая сборка и тесты")
 
-System(gpuworklib, "GPUWorkLib", "Библиотека GPU-вычислений для ЦОС:\nFFT, фильтры, генераторы, гетеродин")
+System(dsp_core, "DSP-GPU", "Библиотека GPU-вычислений для ЦОС:\nFFT, фильтры, генераторы, гетеродин")
 
 System_Ext(gpu_hw, "GPU Hardware", "NVIDIA (OpenCL)\nAMD (ROCm/HIP)\nIntel (OpenCL)")
 System_Ext(clfft, "clFFT / hipFFT", "Библиотеки БПФ")
@@ -146,16 +146,16 @@ System_Ext(pybind, "pybind11", "C++ ↔ Python bridge")
 System_Ext(host_fs, "Host OS / FS", "Логи, конфиг, кеш, результаты")
 
 ' Связи от людей к системе – сверху
-Rel(cpp_dev, gpuworklib, "C++ API", "#include <drv_gpu.hpp>")
-Rel(py_sci, gpuworklib, "Python API", "import gpu_worklib")
-Rel(ci_cd, gpuworklib, "Build & Test", "cmake + ctest")
+Rel(cpp_dev, dsp_core, "C++ API", "#include <drv_gpu.hpp>")
+Rel(py_sci, dsp_core, "Python API", "import gpu_worklib")
+Rel(ci_cd, dsp_core, "Build & Test", "cmake + ctest")
 
 ' Внешние зависимости – ниже/сбоку
-Rel(gpuworklib, gpu_hw, "Compute", "OpenCL / HIP API")
-Rel(gpuworklib, clfft, "FFT", "clFFT / hipFFT API")
-Rel(gpuworklib, plog_lib, "Logging", "plog macros")
-Rel(gpuworklib, pybind, "Bindings", "pybind11 module")
-Rel(gpuworklib, host_fs, "I/O", "Read/Write files")
+Rel(dsp_core, gpu_hw, "Compute", "OpenCL / HIP API")
+Rel(dsp_core, clfft, "FFT", "clFFT / hipFFT API")
+Rel(dsp_core, plog_lib, "Logging", "plog macros")
+Rel(dsp_core, pybind, "Bindings", "pybind11 module")
+Rel(dsp_core, host_fs, "I/O", "Read/Write files")
 
 SHOW_LEGEND()
 @enduml

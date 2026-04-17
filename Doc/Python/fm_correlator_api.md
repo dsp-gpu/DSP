@@ -5,12 +5,12 @@
 ## Quick Start
 
 ```python
-import gpuworklib
+import dsp_radar
 import numpy as np
 
 # Create context and correlator
-ctx = gpuworklib.ROCmGPUContext(0)
-corr = gpuworklib.FMCorrelatorROCm(ctx)
+ctx = dsp_radar.ROCmGPUContext(0)
+corr = dsp_radar.FMCorrelatorROCm(ctx)
 
 # Mode 1: Parameters only (no data transfer)
 corr.set_params(fft_size=32768, num_shifts=32, num_signals=10)
@@ -29,7 +29,7 @@ peaks = corr.process(signals.astype(np.float32))
 ### Constructor
 
 ```python
-corr = gpuworklib.FMCorrelatorROCm(ctx)
+corr = dsp_radar.FMCorrelatorROCm(ctx)
 ```
 
 | Parameter | Type | Description |

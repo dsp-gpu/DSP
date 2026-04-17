@@ -1,16 +1,16 @@
 # C3 — Component Diagram
 
-> **Project**: GPUWorkLib
+> **Project**: DSP-GPU
 > **Date**: 2026-03-28
 > **Reference**: [c4model.com](https://c4model.com)
 > **Level**: 3 (Component) — компоненты внутри каждого контейнера
 
 ---
 
-## 1. DrvGPU — Component Diagram
+## 1. core — Component Diagram
 
 ```
-┌─────────────────────────────── DrvGPU ──────────────────────────────────┐
+┌─────────────────────────────── core ──────────────────────────────────┐
 │                                                                          │
 │  ┌──────────────────────── Interface Layer ─────────────────────────┐   │
 │  │  ┌─────────────┐  ┌───────────────────┐  ┌──────────────────┐   │   │
@@ -513,7 +513,7 @@
 
 | Контейнер | Компонент | Тип | Файлы |
 |-----------|-----------|-----|-------|
-| **DrvGPU** | IBackend | Interface | `interface/i_backend.hpp` |
+| **core** | IBackend | Interface | `interface/i_backend.hpp` |
 | | OpenCLBackend | Class | `backends/opencl/opencl_backend.*` |
 | | ROCmBackend | Class | `backends/rocm/rocm_backend.*` |
 | | HybridBackend | Class | `backends/hybrid/hybrid_backend.*` |
