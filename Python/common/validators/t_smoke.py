@@ -5,7 +5,7 @@ test_smoke.py — smoke-тесты common.validators
 Запуск:
     "F:/Program Files (x86)/Python314/python.exe" Python_test/common/validators/test_smoke.py
 
-НЕ pytest! Используется собственный TestRunner из common.runner.
+Используется собственный TestRunner из common.runner.
 """
 
 from __future__ import annotations

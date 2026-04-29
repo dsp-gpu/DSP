@@ -18,7 +18,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 from typing import Optional
 
-from test_params import AntennaTestParams
+from t_params import AntennaTestParams
 from signal_factory import SignalVariant
 
 

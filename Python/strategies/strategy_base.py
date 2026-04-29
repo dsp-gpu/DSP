@@ -1,6 +1,6 @@
 """
-strategy_test_base.py — StrategyTestBase (Template Method GoF)
-==============================================================
+strategy_base.py — StrategyTestBase (Template Method GoF)
+=========================================================
 
 Наследует common.TestBase (Template Method).
 Специализирован для тестов антенной стратегии:
@@ -38,9 +38,9 @@ _PYTHON_TEST_DIR = os.path.dirname(_STRAT_DIR)
 if _PYTHON_TEST_DIR not in sys.path:
     sys.path.insert(0, _PYTHON_TEST_DIR)
 
-from common.test_base import TestBase
+from common.base import TestBase
 from common.result import TestResult, ValidationResult
-from test_params import AntennaTestParams, SignalVariant
+from t_params import AntennaTestParams, SignalVariant
 from signal_generators_strategy import ISignalStrategy
 
 

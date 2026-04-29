@@ -1,5 +1,5 @@
 """
-conftest.py — фабричные функции для Python_test/signal_generators/
+factories.py — фабричные функции для DSP/Python/signal_generators/
 ===================================================================
 
 Предоставляет factory functions для тестов генераторов сигналов.

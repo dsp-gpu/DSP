@@ -15,32 +15,33 @@ test_lch_farrow.py — Тесты LchFarrow (standalone Lagrange 48x5 fractional
 import sys
 import os
 import json
-import glob
 import numpy as np
 
-# ── Путь к gpuworklib (Python_test/lch_farrow/ -> 2 levels up) ──
-_root = os.path.join(os.path.dirname(__file__), '..', '..')
-BUILD_PATHS = (
-    glob.glob(os.path.join(_root, 'build', 'debian-*', 'python')) +
-    [os.path.join(_root, 'build', 'python', 'Debug'),
-     os.path.join(_root, 'build', 'python', 'Release'),
-     os.path.join(_root, 'build', 'python')]
-)
-for p in BUILD_PATHS:
-    if os.path.isdir(p):
-        sys.path.insert(0, os.path.abspath(p))
-        break
+# ── DSP/Python в sys.path для импорта common.* ──────────────────────────────
+_PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PT_DIR not in sys.path:
+    sys.path.insert(0, _PT_DIR)
+
+from common.runner import SkipTest
+from common.gpu_loader import GPULoader
+
+GPULoader.setup_path()  # добавляет DSP/Python/lib/ (или build/python) в sys.path
 
 try:
-    import gpuworklib
+    import dsp_core as core
+    import dsp_spectrum as spectrum
+    HAS_GPU = True
 except ImportError:
-    print("ERROR: gpuworklib not found. Build with -DBUILD_PYTHON=ON")
-    sys.exit(1)
+    HAS_GPU = False
+    core = None      # type: ignore
+    spectrum = None  # type: ignore
 
-if not hasattr(gpuworklib, 'LchFarrowROCm'):
-    print("ERROR: gpuworklib built without LchFarrow.")
-    print("  Rebuild: cmake -B build -DBUILD_PYTHON=ON && cmake --build build")
-    sys.exit(1)
+try:
+    import dsp_signal_generators as sg
+    HAS_SG = True
+except ImportError:
+    HAS_SG = False
+    sg = None        # type: ignore
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -48,8 +49,7 @@ if not hasattr(gpuworklib, 'LchFarrowROCm'):
 # ════════════════════════════════════════════════════════════════════════════
 
 MATRIX_PATH = os.path.join(
-    os.path.dirname(__file__), '..', '..', 'modules', 'lch_farrow',
-    'lagrange_matrix_48x5.json')
+    os.path.dirname(__file__), 'data', 'lagrange_matrix_48x5.json')
 
 
 def load_lagrange_matrix():
@@ -108,6 +108,10 @@ def generate_cw_signal(fs, points, f0, amplitude=1.0):
 
 def test_zero_delay():
     """delay=0 -> output == input."""
+    if not HAS_GPU:
+        raise SkipTest("dsp_core/dsp_spectrum not found")
+    if not hasattr(spectrum, 'LchFarrowROCm'):
+        raise SkipTest("dsp_spectrum built without LchFarrowROCm")
     print("\n[Test 1] Zero delay...")
 
     fs = 1e6
@@ -116,8 +120,8 @@ def test_zero_delay():
 
     signal = generate_cw_signal(fs, points, f0)
 
-    ctx = gpuworklib.ROCmGPUContext(0)
-    proc = gpuworklib.LchFarrowROCm(ctx)
+    ctx = core.ROCmGPUContext(0)
+    proc = spectrum.LchFarrowROCm(ctx)
     proc.set_sample_rate(fs)
     proc.set_delays([0.0])
     result = proc.process(signal)
@@ -134,6 +138,8 @@ def test_zero_delay():
 
 def test_integer_delay():
     """delay = 5 samples -> output[5:] ≈ input[:N-5], output[:5] = 0."""
+    if not HAS_GPU:
+        raise SkipTest("dsp_core/dsp_spectrum not found")
     print("\n[Test 2] Integer delay (5 samples)...")
 
     fs = 1e6
@@ -143,8 +149,8 @@ def test_integer_delay():
 
     signal = generate_cw_signal(fs, points, f0)
 
-    ctx = gpuworklib.ROCmGPUContext(0)
-    proc = gpuworklib.LchFarrowROCm(ctx)
+    ctx = core.ROCmGPUContext(0)
+    proc = spectrum.LchFarrowROCm(ctx)
     proc.set_sample_rate(fs)
     proc.set_delays([delay_us])
     result = proc.process(signal).ravel()
@@ -172,6 +178,8 @@ def test_integer_delay():
 
 def test_fractional_delay():
     """delay = 2.7 samples -> GPU vs NumPy Lagrange."""
+    if not HAS_GPU:
+        raise SkipTest("dsp_core/dsp_spectrum not found")
     print("\n[Test 3] Fractional delay (2.7 samples)...")
 
     fs = 1e6
@@ -181,8 +189,8 @@ def test_fractional_delay():
 
     signal = generate_cw_signal(fs, points, f0)
 
-    ctx = gpuworklib.ROCmGPUContext(0)
-    proc = gpuworklib.LchFarrowROCm(ctx)
+    ctx = core.ROCmGPUContext(0)
+    proc = spectrum.LchFarrowROCm(ctx)
     proc.set_sample_rate(fs)
     proc.set_delays([delay_us])
     result = proc.process(signal).ravel()
@@ -205,6 +213,8 @@ def test_fractional_delay():
 
 def test_multi_antenna():
     """4 антенны с разными задержками."""
+    if not HAS_GPU:
+        raise SkipTest("dsp_core/dsp_spectrum not found")
     print("\n[Test 4] Multi-antenna...")
 
     fs = 1e6
@@ -217,8 +227,8 @@ def test_multi_antenna():
     single = generate_cw_signal(fs, points, f0)
     signal = np.tile(single, (antennas, 1))  # (4, 4096)
 
-    ctx = gpuworklib.ROCmGPUContext(0)
-    proc = gpuworklib.LchFarrowROCm(ctx)
+    ctx = core.ROCmGPUContext(0)
+    proc = spectrum.LchFarrowROCm(ctx)
     proc.set_sample_rate(fs)
     proc.set_delays(delays)
     result = proc.process(signal)
@@ -247,7 +257,11 @@ def test_multi_antenna():
 # ════════════════════════════════════════════════════════════════════════════
 
 def test_lch_farrow_vs_analytical():
-    """LchFarrow(LFM_signal) vs LfmAnalyticalDelay — оба должны дать ~одинаковый результат."""
+    """LchFarrow(LFM_signal) vs LfmAnalyticalDelayROCm — оба должны дать ~одинаковый результат."""
+    if not HAS_GPU:
+        raise SkipTest("dsp_core/dsp_spectrum not found")
+    if not HAS_SG or not hasattr(sg, 'LfmAnalyticalDelayROCm'):
+        raise SkipTest("dsp_signal_generators.LfmAnalyticalDelayROCm not available")
     print("\n[Test 5] LchFarrow + LFM vs LfmAnalyticalDelay...")
 
     fs = 12e6
@@ -256,28 +270,22 @@ def test_lch_farrow_vs_analytical():
     f_end = 2e6
     delay_us = 0.5  # 0.5 мкс
 
-    ctx = gpuworklib.ROCmGPUContext(0)
+    ctx = core.ROCmGPUContext(0)
     # Вариант 1: Аналитическая задержка (идеальная)
-    gen_analytical = gpuworklib.LfmAnalyticalDelayROCm(
+    gen_analytical = sg.LfmAnalyticalDelayROCm(
         ctx, f_start=f_start, f_end=f_end)
     gen_analytical.set_sampling(fs=fs, length=length)
     gen_analytical.set_delays([delay_us])
     analytical = gen_analytical.generate_gpu().ravel()
 
-    # Вариант 2: Стандартный LFM + LchFarrow
-    if not hasattr(gpuworklib, 'SignalGenerator'):
-        # ROCm-only build: generate LFM via NumPy
-        duration = length / fs
-        chirp_rate = (f_end - f_start) / duration
-        t = np.arange(length) / fs
-        phase = np.pi * chirp_rate * t**2 + 2 * np.pi * f_start * t
-        lfm_clean = (np.exp(1j * phase)).astype(np.complex64)
-    else:
-        sig = gpuworklib.SignalGenerator(ctx)
-        lfm_clean = sig.generate_lfm(
-            f_start=f_start, f_end=f_end, fs=fs, length=length)
+    # Вариант 2: Чистый LFM через NumPy reference + LchFarrow
+    duration = length / fs
+    chirp_rate = (f_end - f_start) / duration
+    t = np.arange(length) / fs
+    phase = np.pi * chirp_rate * t**2 + 2 * np.pi * f_start * t
+    lfm_clean = np.exp(1j * phase).astype(np.complex64)
 
-    proc = gpuworklib.LchFarrowROCm(ctx)
+    proc = spectrum.LchFarrowROCm(ctx)
     proc.set_sample_rate(fs)
     proc.set_delays([delay_us])
     farrow_result = proc.process(lfm_clean).ravel()

@@ -1,5 +1,5 @@
 """
-conftest.py — фабричные функции для Python_test/capon/
+factories.py — фабричные функции для DSP/Python/linalg/
 """
 import sys
 import os

@@ -1,5 +1,5 @@
 """
-conftest.py — фабричные функции для Python_test/integration/
+factories.py — фабричные функции для DSP/Python/integration/
 =============================================================
 
 Предоставляет factory functions для интеграционных тестов.

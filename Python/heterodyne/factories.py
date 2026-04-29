@@ -1,5 +1,5 @@
 """
-conftest.py — фабричные функции для Python_test/heterodyne/
+factories.py — фабричные функции для DSP/Python/heterodyne/
 ============================================================
 
 Предоставляет factory functions для тестов гетеродина/дечирпа.

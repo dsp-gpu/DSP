@@ -1,6 +1,6 @@
 """
-signal_test_base.py — SignalTestBase (Template Method для генераторов)
-======================================================================
+signal_base.py — SignalTestBase (Template Method для генераторов)
+=================================================================
 
 Наследует TestBase. Специализирован для тестирования GPU-генераторов сигналов.
 
@@ -38,7 +38,7 @@ import numpy as np
 from abc import abstractmethod
 from typing import Optional
 
-from common.test_base import TestBase
+from common.base import TestBase
 from common.result import TestResult
 from common.validators import DataValidator
 

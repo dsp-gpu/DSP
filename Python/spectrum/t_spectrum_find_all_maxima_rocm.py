@@ -23,24 +23,25 @@ import sys
 import os
 import subprocess
 
-# Path to gpuworklib
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-_PT_DIR = os.path.join(PROJECT_ROOT, "Python_test")
+# DSP/Python в sys.path для импорта common.*
+_PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _PT_DIR not in sys.path:
     sys.path.insert(0, _PT_DIR)
+
 from common.runner import SkipTest
-for subdir in ["build/python", "build/debian-radeon9070/python", "build/python/Release", "build/python/Debug"]:
-    p = os.path.join(PROJECT_ROOT, subdir.replace("/", os.sep))
-    if os.path.isdir(p):
-        sys.path.insert(0, p)
-        break
+from common.gpu_loader import GPULoader
+
+GPULoader.setup_path()  # добавляет DSP/Python/lib/ (или build/python) в sys.path
 
 try:
-    import gpuworklib
     import numpy as np
+    import dsp_core as core
+    import dsp_heterodyne as het
     HAS_GPU = True
 except ImportError:
     HAS_GPU = False
+    core = None  # type: ignore
+    het = None   # type: ignore
 
 
 def _is_amd_rocm():
@@ -58,12 +59,12 @@ def _is_amd_rocm():
 def test_rocm_context_available():
     """ROCmGPUContext создаётся на AMD."""
     if not HAS_GPU:
-        raise SkipTest("gpuworklib not found")
+        raise SkipTest("dsp_core/dsp_heterodyne not found")
     if not _is_amd_rocm():
         raise SkipTest("ROCm not available (need AMD GPU)")
-    if not hasattr(gpuworklib, "ROCmGPUContext"):
-        raise SkipTest("gpuworklib built without ROCm")
-    ctx = gpuworklib.ROCmGPUContext(0)
+    if not hasattr(core, "ROCmGPUContext"):
+        raise SkipTest("dsp_core built without ROCm")
+    ctx = core.ROCmGPUContext(0)
     assert ctx is not None
     assert "AMD" in ctx.device_name or "Radeon" in ctx.device_name
     print(f"  ROCm device: {ctx.device_name}")
@@ -74,38 +75,59 @@ def test_rocm_context_available():
 # ============================================================================
 def test_spectrum_via_heterodyne_rocm():
     """
-    Косвенная проверка spectrum pipeline: HeterodyneDechirp использует
-    FFT + SpectrumProcessorROCm внутри. Генерируем LFM с задержкой,
-    dechirp должен найти f_beat.
+    Косвенная проверка spectrum pipeline через HeterodyneROCm.dechirp.
+
+    Алгоритм:
+      1. Генерируем reference LFM без задержки
+      2. Генерируем rx LFM с задержкой 100 µs → ожидаемый f_beat = chirp_rate * tau
+      3. dc = het.dechirp(rx, ref) на GPU → должен быть тон на f_beat
+      4. FFT(dc) + argmax → найденная f_beat
+      5. Сверка: |f_beat_found - f_beat_expected| < 5 kHz
     """
     if not HAS_GPU:
-        raise SkipTest("gpuworklib not found")
+        raise SkipTest("dsp_core/dsp_heterodyne not found")
     if not _is_amd_rocm():
         raise SkipTest("ROCm not available (need AMD GPU)")
-    if not hasattr(gpuworklib, "HeterodyneDechirp") or not hasattr(gpuworklib, "ROCmGPUContext"):
-        raise SkipTest("HeterodyneDechirp or ROCmGPUContext not available")
+    if not hasattr(het, "HeterodyneROCm"):
+        raise SkipTest("dsp_heterodyne built without HeterodyneROCm")
 
-    ctx = gpuworklib.ROCmGPUContext(0)
-    het = gpuworklib.HeterodyneDechirp(ctx)
+    ctx = core.ROCmGPUContext(0)
+    het_proc = het.HeterodyneROCm(ctx)
     fs = 12e6
     f_start, f_end = 0.0, 2e6
     n = 8000
-    het.set_params(float(f_start), float(f_end), float(fs), int(n), 1)
+    n_ant = 1
+    het_proc.set_params(float(f_start), float(f_end),
+                        float(fs), int(n), int(n_ant))
 
-    # Генерируем LFM с задержкой 100 us -> f_beat = 300 kHz
+    # Параметры LFM
+    duration = n / fs
+    chirp_rate = (f_end - f_start) / duration   # mu = B/T = 3e9 Hz/s
+
+    # Reference: чистый LFM без задержки
     t = np.arange(n, dtype=np.float32) / fs
-    mu = (f_end - f_start) / (n / fs)
+    phase_ref = 2 * np.pi * (0.5 * chirp_rate * t**2 + f_start * t)
+    ref = np.exp(1j * phase_ref).astype(np.complex64)
+
+    # rx: LFM с задержкой 100 µs → f_beat = chirp_rate * tau = 300 kHz
     delay_us = 100.0
     tau = delay_us * 1e-6
     t_delayed = t - tau
-    phase = 2 * np.pi * (0.5 * mu * t_delayed**2 + f_start * t_delayed)
-    rx = np.exp(1j * phase).astype(np.complex64)
+    phase_rx = 2 * np.pi * (0.5 * chirp_rate * t_delayed**2 + f_start * t_delayed)
+    rx = np.exp(1j * phase_rx).astype(np.complex64)
 
-    result = het.process(rx)
-    assert result["success"], f"Process failed: {result.get('error_message', '')}"
-    assert len(result["antennas"]) == 1
-    f_beat = result["antennas"][0]["f_beat_hz"]
-    expected = 3e9 * 100e-6  # 300 kHz
+    # Dechirp на GPU: dc = rx * conj(ref) → тон на f_beat
+    dc = het_proc.dechirp(rx, ref)
+
+    # Найти f_beat через FFT spectrum (CPU, validation only)
+    spec = np.fft.fft(dc)
+    freqs = np.fft.fftfreq(n, d=1.0 / fs)
+    idx_max = int(np.argmax(np.abs(spec)))
+    f_beat = abs(float(freqs[idx_max]))
+
+    expected = chirp_rate * tau   # 300 kHz
     err = abs(f_beat - expected)
-    assert err < 5000, f"f_beat error {err:.0f} Hz (expected ~{expected:.0f})"
+    assert err < 5000, (
+        f"f_beat error {err:.0f} Hz (expected ~{expected:.0f}, found {f_beat:.0f})"
+    )
     print(f"  f_beat={f_beat/1e3:.1f} kHz, expected={expected/1e3:.0f} kHz, err={err:.0f} Hz")

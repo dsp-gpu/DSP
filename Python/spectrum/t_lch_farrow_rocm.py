@@ -34,21 +34,26 @@ _PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _PT_DIR not in sys.path:
     sys.path.insert(0, _PT_DIR)
 
-PROJECT_ROOT = os.path.dirname(_PT_DIR)
-
 from common.gpu_loader import GPULoader
 from common.runner import SkipTest
 
-gpuworklib = GPULoader.get()
-HAS_GPU = gpuworklib is not None
-if not HAS_GPU:
-    print(f"WARNING: gpuworklib not found. Skipping GPU tests. (searched: {GPULoader.loaded_from()})")
+GPULoader.setup_path()  # добавляет DSP/Python/lib/ (или build/python) в sys.path
+
+try:
+    import dsp_core as core
+    import dsp_spectrum as spectrum
+    HAS_GPU = True
+except ImportError:
+    HAS_GPU = False
+    core = None      # type: ignore
+    spectrum = None  # type: ignore
+    print(f"WARNING: dsp_core/dsp_spectrum not found. (searched: {GPULoader.loaded_from()})")
 
 # ============================================================================
 # Load Lagrange matrix 48×5
 # ============================================================================
 
-MATRIX_PATH = os.path.join(PROJECT_ROOT, 'modules', 'lch_farrow', 'lagrange_matrix_48x5.json')
+MATRIX_PATH = os.path.join(os.path.dirname(__file__), 'data', 'lagrange_matrix_48x5.json')
 
 def load_lagrange_matrix() -> np.ndarray:
     """Load 48x5 Lagrange matrix from JSON. Returns (48, 5) float32 array."""
@@ -121,8 +126,8 @@ def make_complex_signal(n: int, seed: int = 42) -> np.ndarray:
 
 
 def make_ctx_lch(sample_rate=SAMPLE_RATE):
-    ctx = gpuworklib.ROCmGPUContext(0)
-    lch = gpuworklib.LchFarrowROCm(ctx)
+    ctx = core.ROCmGPUContext(0)
+    lch = spectrum.LchFarrowROCm(ctx)
     lch.set_sample_rate(sample_rate)
     return ctx, lch
 
@@ -134,8 +139,7 @@ def make_ctx_lch(sample_rate=SAMPLE_RATE):
 def test_zero_delay():
     """Zero delay: output equals input (identity)."""
     if not HAS_GPU:
-        print("  SKIP: no GPU")
-        return
+        raise SkipTest("dsp_core/dsp_spectrum not found")
 
     data = make_complex_signal(POINTS)
     ctx, lch = make_ctx_lch()
@@ -157,8 +161,7 @@ def test_zero_delay():
 def test_integer_delay():
     """Integer delay (5 µs at 1 MHz = 5 samples): output = shift(input, 5)."""
     if not HAS_GPU:
-        print("  SKIP: no GPU")
-        return
+        raise SkipTest("dsp_core/dsp_spectrum not found")
 
     DELAY_US = 5.0
     D = int(DELAY_US * 1e-6 * SAMPLE_RATE)   # = 5 samples
@@ -187,8 +190,7 @@ def test_integer_delay():
 def test_fractional_delay_vs_cpu():
     """Fractional delay (2.7 µs): GPU matches CPU Lagrange reference."""
     if not HAS_GPU:
-        print("  SKIP: no GPU")
-        return
+        raise SkipTest("dsp_core/dsp_spectrum not found")
 
     DELAY_US = 2.7
     try:
@@ -222,8 +224,7 @@ def test_fractional_delay_vs_cpu():
 def test_multi_antenna():
     """Multi-antenna (4 channels, different delays): each matches CPU reference."""
     if not HAS_GPU:
-        print("  SKIP: no GPU")
-        return
+        raise SkipTest("dsp_core/dsp_spectrum not found")
 
     try:
         L_matrix = load_lagrange_matrix()
@@ -264,8 +265,7 @@ def test_multi_antenna():
 def test_properties():
     """LchFarrowROCm: sample_rate, delays, __repr__ are correct."""
     if not HAS_GPU:
-        print("  SKIP: no GPU")
-        return
+        raise SkipTest("dsp_core/dsp_spectrum not found")
 
     delays = [1.0, 2.5, 0.0]
     ctx, lch = make_ctx_lch(sample_rate=SAMPLE_RATE)

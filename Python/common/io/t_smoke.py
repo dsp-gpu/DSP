@@ -5,7 +5,7 @@ test_smoke.py — smoke-тесты common.io
 Запуск:
     "F:/Program Files (x86)/Python314/python.exe" Python_test/common/io/test_smoke.py
 
-НЕ pytest! Используется TestRunner из common.runner.
+Используется TestRunner из common.runner.
 Все файлы пишутся в tempfile.TemporaryDirectory — без следов на диске.
 """
 

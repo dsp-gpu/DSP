@@ -1,6 +1,6 @@
 """
-test_base.py — TestBase (Template Method)
-==========================================
+base.py — TestBase (Template Method)
+=====================================
 
 Template Method (GoF):
   TestBase.run() определяет неизменный скелет теста.

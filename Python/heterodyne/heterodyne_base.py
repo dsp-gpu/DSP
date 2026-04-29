@@ -1,6 +1,6 @@
 """
-heterodyne_test_base.py — HeterodyneTestBase (Template Method)
-==============================================================
+heterodyne_base.py — HeterodyneTestBase (Template Method)
+=========================================================
 
 Специализированный базовый класс для тестов HeterodyneDechirp.
 
@@ -23,7 +23,7 @@ heterodyne_test_base.py — HeterodyneTestBase (Template Method)
 import numpy as np
 from abc import abstractmethod
 
-from common.test_base import TestBase
+from common.base import TestBase
 from common.result import TestResult, ValidationResult
 from common.validators import DataValidator
 from heterodyne.conftest import DechirpParams

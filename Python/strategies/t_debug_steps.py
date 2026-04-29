@@ -32,7 +32,7 @@ _DIR = os.path.dirname(os.path.abspath(__file__))
 if _DIR not in sys.path:
     sys.path.insert(0, _DIR)
 
-from test_params import AntennaTestParams, SignalVariant
+from t_params import AntennaTestParams, SignalVariant
 from signal_generators_strategy import SignalStrategyFactory
 
 _PYTHON_TEST_DIR = os.path.dirname(_DIR)

@@ -1,11 +1,11 @@
 """
-conftest.py — фабричные функции для Python_test/strategies/
+factories.py — фабричные функции для DSP/Python/strategies/
 ============================================================
 
 Предоставляет фабричные функции. Каждый вызов make_*() создаёт новый объект.
 
 Использование:
-    from conftest import make_farrow, make_scenario_8ant, strategy_plot_dir
+    from factories import make_farrow, make_scenario_8ant, strategy_plot_dir
 
     def test_something():
         farrow = make_farrow()

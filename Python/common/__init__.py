@@ -10,7 +10,7 @@ common — общая инфраструктура для Python_test/
     reporters   — IReporter + ConsoleReporter / JSONReporter
     gpu_loader  — GPULoader (Singleton) — находит .so один раз
     gpu_context — GPUContextManager (Singleton) — хранит GPU-контекст
-    test_base   — TestBase (Template Method)
+    base        — TestBase (Template Method)
     plotting    — IPlotter ABC + SpectrumPlotter/TimePlotter + PlotterFactory
     references  — SignalReferences, FilterReferences, StatisticsReferences, FftReferences (DRY)
     io          — ResultStore + NumpyStore + JsonStore (Repository)

@@ -1,6 +1,6 @@
 """
-filter_test_base.py — FilterTestBase (Template Method для фильтров)
-====================================================================
+filter_base.py — FilterTestBase (Template Method для фильтров)
+===============================================================
 
 Наследует TestBase и специализирует для тестирования GPU-фильтров.
 
@@ -37,7 +37,7 @@ import numpy as np
 from abc import abstractmethod
 from typing import Optional
 
-from common.test_base import TestBase
+from common.base import TestBase
 from common.result import TestResult, ValidationResult
 from common.validators import DataValidator
 from common.configs import FilterConfig

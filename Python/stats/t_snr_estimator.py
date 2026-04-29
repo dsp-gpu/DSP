@@ -10,7 +10,7 @@ test_snr_estimator.py — e2e тест SNR-estimator (SNR_10)
 
 Numpy reference берётся из PyPanelAntennas/SNR/ (SNR_00 Python модель).
 
-⚠️ ЗАПРЕЩЕНО pytest! Используется TestRunner + SkipTest из common/runner.py.
+Используется TestRunner + SkipTest из common/runner.py.
 
 Запуск (в понедельник на Debian/AMD):
     "F:/Program Files (x86)/Python314/python.exe" Python_test/statistics/test_snr_estimator.py
@@ -37,7 +37,7 @@ _ROOT = _THIS.parents[2]  # <repo>/
 sys.path.insert(0, str(_ROOT / "Python_test"))
 sys.path.insert(0, str(_ROOT / "PyPanelAntennas" / "SNR"))  # numpy reference
 
-# ── Test infrastructure (НЕ pytest!) ─────────────────────────────────────────
+# ── Test infrastructure (TestRunner-based) ───────────────────────────────────
 from common.runner import TestRunner, SkipTest  # noqa: E402
 from common.gpu_loader import GPULoader  # noqa: E402
 
@@ -64,7 +64,7 @@ def _import_cfar_or_skip():
 
 
 # =============================================================================
-# Test class (обычный Python class, НЕ pytest)
+# Test class (обычный Python class под TestRunner)
 # =============================================================================
 
 class TestSnrEstimator:
