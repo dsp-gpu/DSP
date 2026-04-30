@@ -12,9 +12,8 @@ test_spectrum_maxima_finder_rocm.py — тесты SpectrumMaximaFinderROCm (ROC
   - формат вывода совместим с OpenCL SpectrumMaximaFinder
   - однолучевой (dict) и многолучевой (list[dict]) режимы
 
-Запуск:
-  cd /home/alex/C++/GPUWorkLib
-  PYTHONPATH=build/python python Python_test/fft_maxima/test_spectrum_maxima_finder_rocm.py
+Запуск (Debian):
+  python3 DSP/Python/spectrum/t_spectrum_maxima_finder_rocm.py
 """
 
 import sys
@@ -26,14 +25,20 @@ _PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _PT_DIR not in sys.path:
     sys.path.insert(0, _PT_DIR)
 from common.runner import SkipTest, TestRunner
+from common.gpu_loader import GPULoader
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
 
 # ─── GPU availability ─────────────────────────────────────────────────────────
 
 try:
-    import gpuworklib
-    HAS_ROCM_MAXIMA = hasattr(gpuworklib, 'SpectrumMaximaFinderROCm')
+    import dsp_core as core
+    import dsp_spectrum as spectrum
+    HAS_ROCM_MAXIMA = hasattr(spectrum, 'SpectrumMaximaFinderROCm')
 except ImportError:
     HAS_ROCM_MAXIMA = False
+    core = None      # type: ignore
+    spectrum = None  # type: ignore
 
 
 
@@ -161,8 +166,8 @@ class TestSpectrumMaximaFinderROCm:
     def setUp(self):
         if not HAS_ROCM_MAXIMA:
             raise SkipTest("SpectrumMaximaFinderROCm not available")
-        self._ctx = gpuworklib.ROCmGPUContext(0)
-        self._finder = gpuworklib.SpectrumMaximaFinderROCm(self._ctx)
+        self._ctx = core.ROCmGPUContext(0)
+        self._finder = spectrum.SpectrumMaximaFinderROCm(self._ctx)
 
     # ── process() — ONE_PEAK ─────────────────────────────────────────────────
 

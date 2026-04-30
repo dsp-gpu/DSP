@@ -17,9 +17,8 @@ Signal formula (getX):
   - шум noise_amplitude > 0: SNR ухудшается
   - set_params_from_string: парсинг CSV
 
-Запуск:
-  cd /home/alex/C++/GPUWorkLib
-  PYTHONPATH=build/python python Python_test/signal_generators/test_form_signal_rocm.py
+Запуск (Debian):
+  python3 DSP/Python/signal_generators/t_form_signal_rocm.py
 """
 
 import sys
@@ -30,14 +29,20 @@ _PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _PT_DIR not in sys.path:
     sys.path.insert(0, _PT_DIR)
 from common.runner import SkipTest, TestRunner
+from common.gpu_loader import GPULoader
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
 
 # ─── GPU availability ─────────────────────────────────────────────────────────
 
 try:
-    import gpuworklib
-    HAS_FORM_ROCM = hasattr(gpuworklib, 'FormSignalGeneratorROCm')
+    import dsp_core as core
+    import dsp_signal_generators as signal_generators
+    HAS_FORM_ROCM = hasattr(signal_generators, 'FormSignalGeneratorROCm')
 except ImportError:
     HAS_FORM_ROCM = False
+    core = None              # type: ignore
+    signal_generators = None  # type: ignore
 
 
 
@@ -198,8 +203,8 @@ class TestFormSignalGeneratorROCm:
     def setUp(self):
         if not HAS_FORM_ROCM:
             raise SkipTest("FormSignalGeneratorROCm not available")
-        ctx = gpuworklib.ROCmGPUContext(0)
-        self._gen = gpuworklib.FormSignalGeneratorROCm(ctx)
+        ctx = core.ROCmGPUContext(0)
+        self._gen = signal_generators.FormSignalGeneratorROCm(ctx)
 
     # ── CW signal ────────────────────────────────────────────────────────────
 

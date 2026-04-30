@@ -3,7 +3,7 @@
 Test: KalmanFilterROCm — GPU 1D scalar Kalman filter (ROCm) vs numpy reference
 
 Filter: 1D scalar Kalman — Re and Im parts filtered independently.
-GPU class: gpuworklib.KalmanFilterROCm
+GPU class: spectrum.KalmanFilterROCm
 
 Tests:
   1. test_kalman_basic           — random complex signal, GPU vs numpy reference
@@ -26,7 +26,7 @@ Algorithm (for reference):
 Note:
   Tolerance GPU vs numpy: < 1e-4 (float32).
   GPU API:
-    kalman = gpuworklib.KalmanFilterROCm(ctx)
+    kalman = spectrum.KalmanFilterROCm(ctx)
     kalman.set_params(Q, R, x0=0.0, P0=25.0)
     kalman.process(data)               # 1D or 2D (channels, points) complex64
     kalman.is_ready()
@@ -43,19 +43,24 @@ import sys
 import os
 import numpy as np
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for _subdir in ["build/python", "build/python/Release", "build/python/Debug", "build/debian-radeon9070/python"]:
-    _p = os.path.join(PROJECT_ROOT, _subdir)
-    if os.path.exists(_p):
-        sys.path.insert(0, _p)
-        break
+_PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PT_DIR not in sys.path:
+    sys.path.insert(0, _PT_DIR)
+
+from common.gpu_loader import GPULoader
+from common.runner import SkipTest
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
 
 try:
-    import gpuworklib
+    import dsp_core as core
+    import dsp_spectrum as spectrum
     HAS_GPU = True
 except ImportError:
     HAS_GPU = False
-    print("WARNING: gpuworklib not found. Skipping GPU tests.")
+    core = None      # type: ignore
+    spectrum = None  # type: ignore
+    print("WARNING: dsp_core/dsp_spectrum not found. Skipping GPU tests.")
 
 # ============================================================================
 # Parameters
@@ -138,8 +143,8 @@ def make_complex_signal(n: int, seed: int = 42) -> np.ndarray:
 
 
 def make_ctx_kalman():
-    ctx    = gpuworklib.ROCmGPUContext(0)
-    kalman = gpuworklib.KalmanFilterROCm(ctx)
+    ctx    = core.ROCmGPUContext(0)
+    kalman = spectrum.KalmanFilterROCm(ctx)
     return ctx, kalman
 
 

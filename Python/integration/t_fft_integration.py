@@ -2,16 +2,15 @@
 test_fft_integration.py — интеграционные тесты FFT + SignalGenerator
 ======================================================================
 
-Тесты 1-3 из оригинального test_gpuworklib.py.
+Тесты 1-3 из оригинального t_signal_to_spectrum.py (legacy GPUWorkLib).
 
 Tests:
   test_multichannel_cw_fft     — CW разных частот → FFT → пик в нужном месте
   test_multichannel_lfm_fft    — LFM → FFT → рассеяный спектр (нет острого пика)
   test_noise_fft_flat_spectrum — Noise → FFT → равномерный спектр
 
-Запуск:
-  python Python_test/integration/test_fft_integration.py
-  PYTHONPATH=build/python python Python_test/integration/test_fft_integration.py
+Запуск (Debian):
+  python3 DSP/Python/integration/t_fft_integration.py
 """
 
 import sys
@@ -23,8 +22,17 @@ if _PT_DIR not in sys.path:
     sys.path.insert(0, _PT_DIR)
 from common.runner import SkipTest, TestRunner
 from common.gpu_loader import GPULoader
-from common.gpu_context import GPUContextManager
-from integration.conftest import make_sig_gen, make_fft_proc
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
+
+try:
+    import dsp_core as core
+    HAS_GPU = True
+except ImportError:
+    HAS_GPU = False
+    core = None  # type: ignore
+
+from integration.factories import make_sig_gen, make_fft_proc
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -35,14 +43,11 @@ class TestCwFftIntegration:
     """CW + FFT: пик спектра на заданной частоте."""
 
     def setUp(self):
-        gw = GPULoader.get()
-        if gw is None:
-            raise SkipTest("gpuworklib не найден")
-        ctx = GPUContextManager.get_rocm()
-        if ctx is None:
-            raise SkipTest("GPU context недоступен")
-        self._sig_gen = make_sig_gen(gw, ctx)
-        self._fft_proc = make_fft_proc(gw, ctx)
+        if not HAS_GPU:
+            raise SkipTest("dsp_core не найден")
+        ctx = core.ROCmGPUContext(0)
+        self._sig_gen = make_sig_gen()  # NumPy-based (после миграции с GPUWorkLib)
+        self._fft_proc = make_fft_proc(ctx=ctx)
 
     def test_cw_peak_frequency(self):
         """FFT пик CW-сигнала должен быть на частоте f0 ± 1 бин для нескольких частот."""
@@ -94,14 +99,11 @@ class TestLfmFftIntegration:
     """LFM + FFT: нет острого единственного пика (рассеянный спектр)."""
 
     def setUp(self):
-        gw = GPULoader.get()
-        if gw is None:
-            raise SkipTest("gpuworklib не найден")
-        ctx = GPUContextManager.get_rocm()
-        if ctx is None:
-            raise SkipTest("GPU context недоступен")
-        self._sig_gen = make_sig_gen(gw, ctx)
-        self._fft_proc = make_fft_proc(gw, ctx)
+        if not HAS_GPU:
+            raise SkipTest("dsp_core не найден")
+        ctx = core.ROCmGPUContext(0)
+        self._sig_gen = make_sig_gen()  # NumPy-based (после миграции с GPUWorkLib)
+        self._fft_proc = make_fft_proc(ctx=ctx)
 
     def test_lfm_spread_spectrum(self):
         """LFM спектр рассеян по полосе — нет доминирующего одного пика."""
@@ -142,14 +144,11 @@ class TestNoiseFftIntegration:
     """Noise + FFT: спектр статистически равномерный."""
 
     def setUp(self):
-        gw = GPULoader.get()
-        if gw is None:
-            raise SkipTest("gpuworklib не найден")
-        ctx = GPUContextManager.get_rocm()
-        if ctx is None:
-            raise SkipTest("GPU context недоступен")
-        self._sig_gen = make_sig_gen(gw, ctx)
-        self._fft_proc = make_fft_proc(gw, ctx)
+        if not HAS_GPU:
+            raise SkipTest("dsp_core не найден")
+        ctx = core.ROCmGPUContext(0)
+        self._sig_gen = make_sig_gen()  # NumPy-based (после миграции с GPUWorkLib)
+        self._fft_proc = make_fft_proc(ctx=ctx)
 
     def test_noise_flat_spectrum(self):
         """Noise FFT: среднее >> std не выполняется для шума."""

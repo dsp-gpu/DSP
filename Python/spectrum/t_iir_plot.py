@@ -19,23 +19,28 @@ import numpy as np
 import sys
 import os
 
-# Python_test/filters/ -> 2 levels up to project root
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for subdir in ["build/python/Release", "build/python/Debug", "build/Release", "build/Debug"]:
-    p = os.path.join(PROJECT_ROOT, subdir.replace("/", os.sep))
-    if os.path.exists(p):
-        sys.path.insert(0, p)
-        break
+# DSP/Python в sys.path
+_PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PT_DIR not in sys.path:
+    sys.path.insert(0, _PT_DIR)
+
+from common.gpu_loader import GPULoader
+from common.runner import SkipTest
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
 
 # ============================================================================
 # Imports
 # ============================================================================
 try:
-    import gpuworklib as gw
+    import dsp_core as core
+    import dsp_spectrum as spectrum
     HAS_GPU = True
 except ImportError:
     HAS_GPU = False
-    print("WARNING: gpuworklib not found.")
+    core = None      # type: ignore
+    spectrum = None  # type: ignore
+    print("WARNING: dsp_core/dsp_spectrum not found.")
 
 try:
     import scipy.signal as sig
@@ -68,7 +73,7 @@ IIR_CUTOFF = 0.1    # Normalized (0-1, Nyquist=1) => 2500 Hz
 
 
 def sos_to_sections(sos):
-    """Convert scipy SOS matrix to list of dicts for gpuworklib"""
+    """Convert scipy SOS matrix to list of dicts for dsp_spectrum"""
     sections = []
     for row in sos:
         sections.append({
@@ -99,14 +104,14 @@ def generate_test_signal(channels, points, fs):
 def test_iir_gpu_vs_scipy():
     """IIR: GPU result matches scipy.sosfilt reference (order=8)"""
     if not HAS_GPU or not HAS_SCIPY:
-        print("SKIP: missing gpuworklib or scipy")
+        raise SkipTest("missing dsp_spectrum or scipy")
         return
 
     sos = sig.butter(IIR_ORDER, IIR_CUTOFF, output='sos').astype(np.float64)
     sections = sos_to_sections(sos)
 
-    ctx = gw.GPUContext(0)
-    iir = gw.IirFilter(ctx)
+    ctx = core.GPUContext(0)
+    iir = spectrum.IirFilter(ctx)
     iir.set_sections(sections)
 
     signal = generate_test_signal(CHANNELS, POINTS, SAMPLE_RATE)
@@ -125,14 +130,14 @@ def test_iir_gpu_vs_scipy():
 def test_iir_basic_properties():
     """IIR: basic property checks (order=8 => 4 biquad sections)"""
     if not HAS_GPU or not HAS_SCIPY:
-        print("SKIP: gpuworklib not available")
+        raise SkipTest("dsp_spectrum not available — check build/libs")
         return
 
     sos = sig.butter(IIR_ORDER, IIR_CUTOFF, output='sos').astype(np.float64)
     sections = sos_to_sections(sos)
 
-    ctx = gw.GPUContext(0)
-    iir = gw.IirFilter(ctx)
+    ctx = core.GPUContext(0)
+    iir = spectrum.IirFilter(ctx)
     iir.set_sections(sections)
 
     expected_sections = IIR_ORDER // 2  # Each biquad = 2nd order
@@ -165,8 +170,8 @@ def plot_iir_results():
     sos_main = sig.butter(IIR_ORDER, IIR_CUTOFF, output='sos').astype(np.float64)
     sections = sos_to_sections(sos_main)
 
-    ctx = gw.GPUContext(0)
-    iir = gw.IirFilter(ctx)
+    ctx = core.GPUContext(0)
+    iir = spectrum.IirFilter(ctx)
     iir.set_sections(sections)
 
     signal = generate_test_signal(1, POINTS, SAMPLE_RATE)[0]

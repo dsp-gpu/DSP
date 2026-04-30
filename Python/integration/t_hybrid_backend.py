@@ -9,7 +9,7 @@ test_hybrid_backend.py — Python тесты HybridBackend (OpenCL + ROCm)
 
 Требования:
     - Linux + AMD GPU + ROCm
-    - Собранный gpuworklib.so с ENABLE_ROCM=ON
+    - Собранные dsp_core.so / dsp_spectrum.so / dsp_stats.so с ENABLE_ROCM=ON
     - Запуск в группе render: sg render -c "python3 ..."
 
 Автор: Кодо (AI Assistant)
@@ -20,12 +20,18 @@ import sys
 import os
 import numpy as np
 
-# Добавляем путь к .so (build/debian-radeon9070/python/)
-BUILD_DIR = os.path.join(os.path.dirname(__file__), '../../build/debian-radeon9070/python')
-if os.path.isdir(BUILD_DIR):
-    sys.path.insert(0, BUILD_DIR)
+# DSP/Python в sys.path
+_PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PT_DIR not in sys.path:
+    sys.path.insert(0, _PT_DIR)
 
-import gpuworklib
+from common.gpu_loader import GPULoader
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
+
+import dsp_core as core
+import dsp_spectrum as spectrum
+import dsp_stats as stats
 
 PASSED = 0
 FAILED = 0
@@ -50,7 +56,7 @@ def run_test(name, fn):
 # ============================================================================
 
 def test_hybrid_init():
-    ctx = gpuworklib.HybridGPUContext(0)
+    ctx = core.HybridGPUContext(0)
     assert ctx is not None
     assert ctx.device_index == 0
 
@@ -60,7 +66,7 @@ def test_hybrid_init():
 # ============================================================================
 
 def test_hybrid_device_names():
-    ctx = gpuworklib.HybridGPUContext(0)
+    ctx = core.HybridGPUContext(0)
 
     print(f"\n    OpenCL: {ctx.opencl_device_name}")
     print(f"    ROCm:   {ctx.rocm_device_name}")
@@ -79,8 +85,8 @@ def test_hybrid_device_names():
 # ============================================================================
 
 def test_hybrid_rocm_statistics():
-    ctx_hybrid = gpuworklib.HybridGPUContext(0)
-    ctx_rocm = gpuworklib.ROCmGPUContext(0)
+    ctx_hybrid = core.HybridGPUContext(0)
+    ctx_rocm = core.ROCmGPUContext(0)
 
     # Проверяем, что ROCm sub-backend совпадает с тем же GPU
     print(f"\n    HybridGPUContext ROCm: {ctx_hybrid.rocm_device_name}")
@@ -92,7 +98,7 @@ def test_hybrid_rocm_statistics():
 
     # Запускаем статистику через standalone ROCm (проверяем совместимость)
     data = np.random.randn(1024).astype(np.float32)
-    stats_proc = gpuworklib.StatisticsProcessor(ctx_rocm)
+    stats_proc = stats.StatisticsProcessor(ctx_rocm)
     result = stats_proc.compute_statistics(data)
 
     assert 'mean' in result, "Statistics result missing 'mean'"
@@ -105,7 +111,7 @@ def test_hybrid_rocm_statistics():
 # ============================================================================
 
 def test_hybrid_zero_copy_info():
-    ctx = gpuworklib.HybridGPUContext(0)
+    ctx = core.HybridGPUContext(0)
     method = ctx.zero_copy_method
     supported = ctx.is_zero_copy_supported
 
@@ -122,7 +128,7 @@ def test_hybrid_zero_copy_info():
 # ============================================================================
 
 def test_hybrid_repr():
-    ctx = gpuworklib.HybridGPUContext(0)
+    ctx = core.HybridGPUContext(0)
     r = repr(ctx)
     print(f"\n    repr: {r}")
 
@@ -136,7 +142,7 @@ def test_hybrid_repr():
 # ============================================================================
 
 def test_hybrid_context_manager():
-    with gpuworklib.HybridGPUContext(0) as ctx:
+    with core.HybridGPUContext(0) as ctx:
         assert ctx is not None
         assert ctx.device_index == 0
         assert ctx.opencl_device_name != ""
@@ -148,30 +154,32 @@ def test_hybrid_context_manager():
 # ============================================================================
 
 def test_hybrid_parallel_opencl_rocm():
-    ctx_hybrid = gpuworklib.HybridGPUContext(0)
-    ctx_opencl = gpuworklib.GPUContext(0)
-    ctx_rocm = gpuworklib.ROCmGPUContext(0)
+    ctx_hybrid = core.HybridGPUContext(0)
+    ctx_opencl = core.GPUContext(0)
+    ctx_rocm = core.ROCmGPUContext(0)
 
     # Генерируем данные
     N = 512
     signal = np.random.randn(N).astype(np.complex64)
     real_data = np.random.randn(N).astype(np.float32)
 
-    # OpenCL: FFT
-    fft = gpuworklib.FFTProcessor(ctx_opencl)
-    spectrum = fft.process_complex(signal, sample_rate=1e6)
+    # ROCm: FFT (после миграции — нет OpenCL-FFT, только FFTProcessorROCm).
+    # Hybrid тест проверяет коэксистенцию контекстов, не сам FFT-backend.
+    fft = spectrum.FFTProcessorROCm(ctx_rocm)
+    fft_spec = fft.process_complex(signal, sample_rate=1e6)
 
     # ROCm: Statistics
-    stats_proc = gpuworklib.StatisticsProcessor(ctx_rocm)
+    stats_proc = stats.StatisticsProcessor(ctx_rocm)
     result = stats_proc.compute_statistics(real_data)
 
-    print(f"\n    OpenCL FFT output len: {len(spectrum)}")
+    print(f"\n    ROCm FFT output len: {len(fft_spec)}")
     print(f"    ROCm Statistics: mean={result['mean']:.4f}, std={result['std']:.4f}")
 
-    assert len(spectrum) == N, f"Expected {N} FFT bins, got {len(spectrum)}"
+    assert len(fft_spec) == N, f"Expected {N} FFT bins, got {len(fft_spec)}"
     assert abs(result['mean']) < 1.0, "ROCm mean seems too large"
 
-    # Hybrid context успешно создан — подтверждаем совместимость
+    # Hybrid + OpenCL контексты созданы (interop) — проверяем coexistence
+    assert ctx_opencl.device_name != ""
     print(f"    Hybrid context: {ctx_hybrid.device_name}")
     assert ctx_hybrid.opencl_device_name != ""
     assert ctx_hybrid.rocm_device_name != ""
@@ -182,7 +190,7 @@ def test_hybrid_parallel_opencl_rocm():
 # ============================================================================
 
 def test_hybrid_status_report():
-    ctx = gpuworklib.HybridGPUContext(0)
+    ctx = core.HybridGPUContext(0)
 
     print(f"\n    ===== HybridBackend Status =====")
     print(f"    Device index:         {ctx.device_index}")

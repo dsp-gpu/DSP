@@ -27,8 +27,18 @@ if _PT_DIR not in sys.path:
     sys.path.insert(0, _PT_DIR)
 
 from common.gpu_loader import GPULoader
-from common.gpu_context import GPUContextManager
 from common.runner import SkipTest
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
+
+try:
+    import dsp_core as core
+    import dsp_heterodyne as heterodyne
+    HAS_GPU = True
+except ImportError:
+    HAS_GPU = False
+    core = None        # type: ignore
+    heterodyne = None  # type: ignore
 
 # ============================================================================
 # Default LFM parameters
@@ -89,12 +99,11 @@ def make_random_signal(total: int, seed: int = 42) -> np.ndarray:
 
 
 def _make_het(num_samples=NUM_SAMPLES, num_antennas=NUM_ANTENNAS):
-    """Создать HeterodyneROCm через GPUContextManager (синглтон)."""
-    ctx = GPUContextManager.get_rocm()
-    if ctx is None:
-        raise SkipTest("ROCm недоступен")
-    gw = GPULoader.get()
-    het = gw.HeterodyneROCm(ctx)
+    """Создать HeterodyneROCm."""
+    if not HAS_GPU:
+        raise SkipTest("dsp_core/dsp_heterodyne не найдены")
+    ctx = core.ROCmGPUContext(0)
+    het = heterodyne.HeterodyneROCm(ctx)
     het.set_params(
         f_start=F_START, f_end=F_END,
         sample_rate=SAMPLE_RATE,
@@ -106,12 +115,10 @@ def _make_het(num_samples=NUM_SAMPLES, num_antennas=NUM_ANTENNAS):
 
 def _check_gpu():
     """Проверить доступность GPU — бросает SkipTest если нет."""
-    gw = GPULoader.get()
-    if gw is None or not hasattr(gw, 'HeterodyneROCm'):
-        raise SkipTest("gpuworklib/HeterodyneROCm недоступен")
-    ctx = GPUContextManager.get_rocm()
-    if ctx is None:
-        raise SkipTest("ROCm недоступен")
+    if not HAS_GPU:
+        raise SkipTest("dsp_core/dsp_heterodyne not found")
+    if not hasattr(heterodyne, 'HeterodyneROCm'):
+        raise SkipTest("HeterodyneROCm not in dsp_heterodyne")
 
 
 # ============================================================================

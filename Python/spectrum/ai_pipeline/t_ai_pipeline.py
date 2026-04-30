@@ -32,7 +32,17 @@ if _PT_DIR not in sys.path:
     sys.path.insert(0, _PT_DIR)
 from common.runner import SkipTest, TestRunner
 from common.gpu_loader import GPULoader
-from common.gpu_context import GPUContextManager
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
+
+try:
+    import dsp_core as core
+    import dsp_spectrum as spectrum
+    HAS_GPU = True
+except ImportError:
+    HAS_GPU = False
+    core = None      # type: ignore
+    spectrum = None  # type: ignore
 
 from .llm_parser import MockParser, FilterSpec, create_parser
 from .filter_designer import FilterDesigner, FilterDesign
@@ -188,16 +198,12 @@ class TestGPUPipeline:
             import scipy.signal  # noqa: F401
         except ImportError:
             raise SkipTest("scipy required")
-        gw = GPULoader.get()
-        if gw is None:
-            raise SkipTest("gpuworklib не найден")
-        ctx = GPUContextManager.get_rocm()
-        if ctx is None:
-            raise SkipTest("ROCm недоступен")
-        if not hasattr(gw, "FirFilterROCm"):
+        if not HAS_GPU:
+            raise SkipTest("dsp_core/dsp_spectrum не найдены — check build/libs")
+        if not hasattr(spectrum, "FirFilterROCm"):
             raise SkipTest("FirFilterROCm не доступен")
-        self._gw = gw
-        self._ctx = ctx
+        self._spectrum = spectrum
+        self._ctx = core.ROCmGPUContext(0)
         parser = MockParser()
         designer = FilterDesigner()
         self._fir_design = designer.design(parser.parse("FIR lowpass 1kHz", fs=50_000))
@@ -208,7 +214,7 @@ class TestGPUPipeline:
 
     def test_fir_gpu_vs_scipy(self):
         """FIR: GPU-результат совпадает с scipy с точностью float32."""
-        gw = self._gw
+        gw = self._spectrum  # после миграции — alias на dsp_spectrum
         coeffs = self._fir_design.coeffs_b.astype(np.float32).tolist()
         fir_gpu = gw.FirFilterROCm(self._ctx, coeffs)
         gpu_out = fir_gpu.process(self._noise)
@@ -220,7 +226,7 @@ class TestGPUPipeline:
 
     def test_iir_gpu_vs_scipy(self):
         """IIR: GPU-результат совпадает с scipy."""
-        gw = self._gw
+        gw = self._spectrum  # после миграции — alias на dsp_spectrum
         if not hasattr(gw, "IirFilterROCm"):
             raise SkipTest("IirFilterROCm не доступен")
         b = self._iir_design.coeffs_b.astype(np.float64).tolist()
@@ -235,7 +241,7 @@ class TestGPUPipeline:
 
     def test_full_pipeline_mock(self):
         """Полный pipeline: текст → MockParser → Design → GPU."""
-        gw = self._gw
+        gw = self._spectrum  # после миграции — alias на dsp_spectrum
         parser = MockParser()
         designer = FilterDesigner()
 

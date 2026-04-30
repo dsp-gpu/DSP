@@ -6,7 +6,7 @@ Full pipeline:
   1. User describes filter in natural language (Russian/English)
   2. AI (Groq / Ollama / none) parses -> JSON parameters
   3. scipy designs FIR or IIR filter coefficients
-  4. gpuworklib filters on GPU (FirFilter / IirFilter)
+  4. dsp_spectrum filters on GPU (FirFilter / IirFilter)
   5. Beautiful 4-panel dark-theme plot + validation
 
 AI Backends:
@@ -30,21 +30,28 @@ import re
 import numpy as np
 import traceback
 
-# ── Project root (Python_test/filters/ -> 2 levels up) ──
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for subdir in ["build/python", "build/debian-radeon9070/python", "build/python/Release", "build/python/Debug", "build/Release", "build/Debug"]:
-    p = os.path.join(PROJECT_ROOT, subdir.replace("/", os.sep))
-    if os.path.exists(p):
-        sys.path.insert(0, p)
-        break
+# ── DSP/Python в sys.path ──
+_PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PT_DIR not in sys.path:
+    sys.path.insert(0, _PT_DIR)
+
+PROJECT_ROOT = os.path.dirname(_PT_DIR)  # DSP/
+
+from common.gpu_loader import GPULoader
+from common.runner import SkipTest
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
 
 # ── Imports ──
 try:
-    import gpuworklib as gw
+    import dsp_core as core
+    import dsp_spectrum as spectrum
     HAS_GPU = True
 except ImportError:
     HAS_GPU = False
-    print("WARNING: gpuworklib not found. GPU processing disabled.")
+    core = None      # type: ignore
+    spectrum = None  # type: ignore
+    print("WARNING: dsp_core/dsp_spectrum not found. GPU processing disabled.")
 
 try:
     import scipy.signal as sig
@@ -292,7 +299,7 @@ Return JSON with the fields described in the system prompt."""
 # ============================================================================
 
 def sos_to_sections(sos):
-    """Convert scipy SOS matrix to list of dicts for gpuworklib IirFilter."""
+    """Convert scipy SOS matrix to list of dicts for dsp_spectrum.IirFilter."""
     sections = []
     for row in sos:
         sections.append({
@@ -309,7 +316,7 @@ def design_filter(params: dict):
     Returns:
         filter_class: "fir" or "iir"
         coeffs: FIR taps (np.array) or IIR SOS matrix (np.array)
-        sections: list of dicts for gpuworklib (IIR only, None for FIR)
+        sections: list of dicts for dsp_spectrum (IIR only, None for FIR)
     """
     fs = params["fs"]
     fclass = params.get("filter_class", "iir")
@@ -391,26 +398,22 @@ def design_filter(params: dict):
 # ============================================================================
 
 def generate_test_signal(fs: float, test_freqs: list, num_samples: int = 4096):
-    """Generate multi-frequency complex test signal on GPU."""
-    if HAS_GPU:
-        ctx = gw.GPUContext(0)
-        gen = gw.SignalGenerator(ctx)
-        mixed = np.zeros(num_samples, dtype=np.complex64)
-        amplitudes = [1.0, 0.7, 0.5, 0.3]
-        for i, f in enumerate(test_freqs):
-            a = amplitudes[i] if i < len(amplitudes) else 0.3
-            s = gen.generate_cw(freq=f, fs=fs, length=num_samples, amplitude=a)
-            mixed += s.astype(np.complex64)
-        return mixed, ctx
-    else:
-        # CPU fallback
-        t = np.arange(num_samples) / fs
-        mixed = np.zeros(num_samples, dtype=np.complex64)
-        amplitudes = [1.0, 0.7, 0.5, 0.3]
-        for i, f in enumerate(test_freqs):
-            a = amplitudes[i] if i < len(amplitudes) else 0.3
-            mixed += a * np.exp(1j * 2 * np.pi * f * t).astype(np.complex64)
-        return mixed, None
+    """Generate multi-frequency complex test signal (NumPy CW sum).
+
+    Раньше использовал legacy SignalGenerator (OpenCL) — заменён на NumPy
+    после миграции на DSP-GPU (SignalGenerator не портирован, но CW можно
+    сгенерить np.exp напрямую). GPU создаётся только при HAS_GPU для последующих
+    GPU-фильтров (см. apply_filter_gpu).
+    """
+    t = np.arange(num_samples) / fs
+    mixed = np.zeros(num_samples, dtype=np.complex64)
+    amplitudes = [1.0, 0.7, 0.5, 0.3]
+    for i, f in enumerate(test_freqs):
+        a = amplitudes[i] if i < len(amplitudes) else 0.3
+        mixed += a * np.exp(1j * 2 * np.pi * f * t).astype(np.complex64)
+
+    ctx = core.GPUContext(0) if HAS_GPU else None
+    return mixed, ctx
 
 
 # ============================================================================
@@ -420,7 +423,7 @@ def generate_test_signal(fs: float, test_freqs: list, num_samples: int = 4096):
 def apply_filter_gpu(signal_1d: np.ndarray, fclass: str,
                      coeffs, sections, ctx):
     """
-    Apply FIR or IIR filter on GPU via gpuworklib.
+    Apply FIR or IIR filter on GPU via dsp_spectrum.
 
     Args:
         signal_1d: 1D complex64 array
@@ -438,13 +441,13 @@ def apply_filter_gpu(signal_1d: np.ndarray, fclass: str,
             return sig.sosfilt(coeffs, signal_1d).astype(np.complex64)
 
     if fclass == "fir":
-        fir = gw.FirFilter(ctx)
+        fir = spectrum.FirFilter(ctx)
         fir.set_coefficients(coeffs.tolist())
         result = fir.process(signal_1d)
         print(f"  GPU FirFilter: {fir.num_taps} taps")
         return result
     else:
-        iir = gw.IirFilter(ctx)
+        iir = spectrum.IirFilter(ctx)
         iir.set_sections(sections)
         result = iir.process(signal_1d)
         print(f"  GPU IirFilter: {iir.num_sections} biquad sections")

@@ -45,7 +45,9 @@ from common.validators import DataValidator
 PROJECT_ROOT = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
-BINARY_PATH = os.path.join(PROJECT_ROOT, "build/debian-radeon9070/GPUWorkLib")
+# DSP-GPU C++ бинарь (после сборки cmake --build)
+# Legacy: GPUWorkLib monolith → DSP-GPU: stats/build/test_stats или общий dsp_main
+BINARY_PATH = os.path.join(PROJECT_ROOT, "stats", "build", "test_stats_compute_all")
 HAS_BINARY = os.path.exists(BINARY_PATH)
 
 try:

@@ -5,10 +5,10 @@ test_fm_correlator.py — Python тесты FM Correlator (NumPy reference, no G
 Проверяем математику FM-коррелятора через NumPy-эталон:
   - Автокорреляция M-последовательности → пик в 0
   - Кросс-корреляция со сдвигом → пик в нужном лаге
-  - Сравнение Python-эталона с gpuworklib (если доступен ROCm)
+  - Сравнение Python-эталона с dsp_radar (если доступен ROCm)
 
 Тесты 1-5: NumPy-only (работают без GPU)
-Тесты 6-8: gpuworklib.FMCorrelatorROCm (только если импорт успешен)
+Тесты 6-8: radar.FMCorrelatorROCm (только если импорт успешен)
 
 Author: Kodo (AI Assistant)
 Date: 2026-03-10
@@ -160,26 +160,31 @@ class TestCorrelationNumpy:
 
 
 # ============================================================================
-# Tests 6-8: gpuworklib.FMCorrelatorROCm (requires ROCm GPU)
+# Tests 6-8: dsp_radar.FMCorrelatorROCm (requires ROCm GPU)
 # ============================================================================
 
-# gpuworklib.FMCorrelatorROCm — используем GPULoader для кросс-платформенного поиска
-_gw = GPULoader.get()
-HAS_FM_CORRELATOR = _gw is not None and hasattr(_gw, 'FMCorrelatorROCm')
-if _gw is not None:
-    gpuworklib = _gw
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
+
+try:
+    import dsp_core as core
+    import dsp_radar as radar
+    HAS_FM_CORRELATOR = hasattr(radar, 'FMCorrelatorROCm')
+except ImportError:
+    HAS_FM_CORRELATOR = False
+    core = None   # type: ignore
+    radar = None  # type: ignore
 
 class TestFMCorrelatorROCm:
-    """Тесты GPU-реализации через gpuworklib.FMCorrelatorROCm."""
+    """Тесты GPU-реализации через dsp_radar.FMCorrelatorROCm."""
 
     def setUp(self):
         if not HAS_FM_CORRELATOR:
-            raise SkipTest("gpuworklib.FMCorrelatorROCm не найден (нужна пересборка с ENABLE_ROCM=ON)")
-        self._ctx = gpuworklib.ROCmGPUContext(0)
+            raise SkipTest("dsp_radar.FMCorrelatorROCm не найден (нужна пересборка с ENABLE_ROCM=ON)")
+        self._ctx = core.ROCmGPUContext(0)
 
     def test_generate_msequence_values(self):
         """GPU: generate_msequence возвращает ±1 массив."""
-        corr = gpuworklib.FMCorrelatorROCm(self._ctx)
+        corr = radar.FMCorrelatorROCm(self._ctx)
         corr.set_params(fft_size=1024, num_shifts=1, num_signals=1,
                         num_output_points=50)
         seq = corr.generate_msequence(seed=0x12345678)
@@ -190,7 +195,7 @@ class TestFMCorrelatorROCm:
 
     def test_gpu_autocorrelation_snr(self):
         """GPU: автокорреляция M-sequence → SNR > 10."""
-        corr = gpuworklib.FMCorrelatorROCm(self._ctx)
+        corr = radar.FMCorrelatorROCm(self._ctx)
         corr.set_params(fft_size=4096, num_shifts=1, num_signals=1,
                         num_output_points=200)
 
@@ -217,7 +222,7 @@ class TestFMCorrelatorROCm:
         shift_step = 2
         n_kg = 100
 
-        corr = gpuworklib.FMCorrelatorROCm(self._ctx)
+        corr = radar.FMCorrelatorROCm(self._ctx)
         corr.set_params(fft_size=1024, num_shifts=K, num_signals=S,
                         num_output_points=n_kg)
         corr.prepare_reference()
@@ -235,7 +240,7 @@ class TestFMCorrelatorROCm:
         """GPU результат совпадает с NumPy эталоном (max_error < 0.05)."""
         n = 1024
 
-        corr = gpuworklib.FMCorrelatorROCm(self._ctx)
+        corr = radar.FMCorrelatorROCm(self._ctx)
         corr.set_params(fft_size=n, num_shifts=1, num_signals=1,
                         num_output_points=100)
 

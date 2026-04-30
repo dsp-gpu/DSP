@@ -4,7 +4,10 @@ test_heterodyne_step_by_step.py
 Step-by-step dechirp pipeline test with intermediate values and annotated plots.
 
 Each step prints values and saves a plot to Results/Plots/heterodyne/step_XX_*.png.
-Runs GPU (gpuworklib.HeterodyneDechirp) and CPU (NumPy) in parallel for comparison.
+Runs GPU (dsp_heterodyne.HeterodyneROCm + np.fft) and CPU (NumPy) in parallel for comparison.
+
+TODO(Debian 2026-05-03+): первый запуск после миграции с HeterodyneDechirp на
+HeterodyneROCm. Подкрутить tolerance если float32 даст расхождение.
 
 Steps:
   1. Generate s_rx (5 antennas, linear delays) - GPU + NumPy
@@ -26,22 +29,24 @@ import sys
 import os
 import numpy as np
 
-# -- Path to gpuworklib --
-BUILD_PATHS = [
-    os.path.join(os.path.dirname(__file__), '..', '..', 'build', 'python', 'Debug'),
-    os.path.join(os.path.dirname(__file__), '..', '..', 'build', 'python', 'Release'),
-    os.path.join(os.path.dirname(__file__), '..', '..', 'build', 'python'),
-]
-for p in BUILD_PATHS:
-    if os.path.isdir(p):
-        sys.path.insert(0, os.path.abspath(p))
-        break
+# -- DSP/Python в sys.path --
+_PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PT_DIR not in sys.path:
+    sys.path.insert(0, _PT_DIR)
+
+from common.gpu_loader import GPULoader
+from common.runner import SkipTest
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
 
 try:
-    import gpuworklib
+    import dsp_core as core
+    import dsp_heterodyne as heterodyne
+    HAS_GPU = True
 except ImportError:
-    print("ERROR: gpuworklib not found. Build with -DBUILD_PYTHON=ON")
-    sys.exit(1)
+    HAS_GPU = False
+    core = None        # type: ignore
+    heterodyne = None  # type: ignore
 
 try:
     import matplotlib
@@ -494,25 +499,55 @@ def step07_verify_dc(corrected):
 def step08_gpu_pipeline():
     """Step 8: Full GPU pipeline, compare GPU vs CPU.
 
-    GPU: gpuworklib.HeterodyneDechirp.process()
+    GPU: dsp_heterodyne.HeterodyneROCm.dechirp + np.fft + argmax
     CPU: NumPy FFT + parabolic interpolation
 
     Сравниваем f_beat, дальность и SNR между реализациями.
     """
     print("\n" + "=" * 60)
-    print("STEP 8: GPU Pipeline (HeterodyneDechirp.process)")
+    print("STEP 8: GPU Pipeline (HeterodyneROCm.dechirp + np.fft)")
     print("=" * 60)
 
-    ctx = gpuworklib.ROCmGPUContext(0)
-    het = gpuworklib.HeterodyneDechirp(ctx)
+    if not HAS_GPU:
+        print("  SKIP: dsp_core/dsp_heterodyne not found")
+        return None
+
+    ctx = core.ROCmGPUContext(0)
+    het = heterodyne.HeterodyneROCm(ctx)
     het.set_params(F_START, F_END, FS, N, ANTENNAS)
 
     rx_cpu = generate_rx_numpy(DELAYS_LINEAR_S)
-    result = het.process(rx_cpu.ravel())
 
-    if not result['success']:
-        print(f"  FAIL: {result['error_message']}")
-        return None
+    # Reference (un-delayed) LFM для dechirp = rx * conj(ref)
+    ref_single = generate_rx_numpy([0.0]).ravel().astype(np.complex64)
+    ref_multi = np.tile(ref_single, ANTENNAS).astype(np.complex64)
+
+    # GPU dechirp
+    dc = het.dechirp(rx_cpu.ravel().astype(np.complex64), ref_multi).reshape(ANTENNAS, N)
+
+    # CPU FFT/argmax/SNR/range на каждую антенну (формат legacy result)
+    antennas = []
+    nfft = 8192
+    for ant_idx in range(ANTENNAS):
+        padded = np.zeros(nfft, dtype=np.complex64)
+        padded[:N] = dc[ant_idx]
+        spec = np.abs(np.fft.fft(padded)[:nfft // 2])
+        pb = int(np.argmax(spec))
+        rb, _ = parabolic_interp(spec, pb)
+        f_beat = rb * FS / nfft
+        peak_val = spec[pb]
+        guard = 5
+        left  = max(pb - guard - 5, 0)
+        right = min(pb + guard + 5, nfft // 2 - 1)
+        noise = (spec[left] + spec[right]) / 2.0 + 1e-12
+        snr_db = 20.0 * np.log10(peak_val / noise)
+        range_m = C_LIGHT * T * f_beat / (2 * B)
+        antennas.append({
+            'f_beat_hz': float(f_beat),
+            'peak_snr_db': float(snr_db),
+            'range_m': float(range_m),
+        })
+    result = {'success': True, 'error_message': '', 'antennas': antennas}
 
     # CPU reference
     t = np.arange(N, dtype=np.float64) / FS
@@ -617,7 +652,7 @@ def step08_gpu_pipeline():
                  bbox=dict(fc='honeydew', ec='green', alpha=0.85, pad=3))
 
         fig.suptitle('Шаг 8: GPU Pipeline — сравнение с CPU\n'
-                     'HeterodyneDechirp.process() vs NumPy FFT',
+                     'HeterodyneROCm.dechirp + np.fft vs NumPy FFT',
                      fontsize=11, fontweight='bold')
         add_params_banner(fig, 8, 'GPU vs CPU',
                           'search_range=5000: охват [0..2499] бин (~3.66 МГц)')

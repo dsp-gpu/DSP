@@ -33,25 +33,35 @@ import numpy as np
 
 # ── Project root + paths ─────────────────────────────────────────────────────
 _THIS = Path(__file__).resolve()
-_ROOT = _THIS.parents[2]  # <repo>/
-sys.path.insert(0, str(_ROOT / "Python_test"))
-sys.path.insert(0, str(_ROOT / "PyPanelAntennas" / "SNR"))  # numpy reference
+_PT_DIR = str(_THIS.parents[1])  # DSP/Python/
+if _PT_DIR not in sys.path:
+    sys.path.insert(0, _PT_DIR)
 
 # ── Test infrastructure (TestRunner-based) ───────────────────────────────────
 from common.runner import TestRunner, SkipTest  # noqa: E402
 from common.gpu_loader import GPULoader  # noqa: E402
 
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
+
+try:
+    import dsp_core as core  # noqa: E402
+    import dsp_stats as stats  # noqa: E402
+    HAS_GPU = True
+except ImportError:
+    HAS_GPU = False
+    core = None   # type: ignore
+    stats = None  # type: ignore
+
 
 def _get_gpu_module_or_skip():
-    """Загрузить gpuworklib или SkipTest."""
-    gw = GPULoader.get()
-    if gw is None:
-        raise SkipTest("gpuworklib not built — run CMake build first")
-    if not hasattr(gw, "StatisticsProcessor"):
+    """Загрузить dsp_stats или SkipTest. Возвращает (core, stats) tuple."""
+    if not HAS_GPU:
+        raise SkipTest("dsp_core/dsp_stats not built — run CMake build first")
+    if not hasattr(stats, "StatisticsProcessor"):
         raise SkipTest("StatisticsProcessor not in bindings")
-    if not hasattr(gw, "SnrEstimationConfig"):
+    if not hasattr(stats, "SnrEstimationConfig"):
         raise SkipTest("SNR bindings not built (SNR_07) — rebuild needed")
-    return gw
+    return core, stats
 
 
 def _import_cfar_or_skip():
@@ -71,9 +81,10 @@ class TestSnrEstimator:
     """e2e тесты SNR-estimator (compute_snr_db)."""
 
     def __init__(self):
-        self.gw = _get_gpu_module_or_skip()
-        self.ctx = self.gw.GPUContext()
-        self.stat_proc = self.gw.StatisticsProcessor(self.ctx)
+        core_mod, stats_mod = _get_gpu_module_or_skip()
+        self.gw = stats_mod  # alias на dsp_stats: SnrEstimationConfig, BranchSelector, BranchType
+        self.ctx = core_mod.GPUContext()
+        self.stat_proc = stats_mod.StatisticsProcessor(self.ctx)
         self.cfar_mod = _import_cfar_or_skip()
 
     # ─────────────────────────────────────────────────────────────────────────

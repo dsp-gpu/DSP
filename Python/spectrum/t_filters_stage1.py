@@ -3,8 +3,8 @@ Stage 1: scipy -> GPU filter pipeline test
 ============================================
 
 Tests:
-  1. FIR: scipy.signal.firwin() -> gpuworklib.FirFilter -> validate vs scipy.lfilter
-  2. IIR: scipy.signal.butter(sos) -> gpuworklib.IirFilter -> validate vs scipy.sosfilt
+  1. FIR: scipy.signal.firwin() -> dsp_spectrum.FirFilter -> validate vs scipy.lfilter
+  2. IIR: scipy.signal.butter(sos) -> dsp_spectrum.IirFilter -> validate vs scipy.sosfilt
 
 Usage:
   python Python_test/filters/test_filters_stage1.py
@@ -17,23 +17,28 @@ import numpy as np
 import sys
 import os
 
-# Python_test/filters/ -> 2 levels up to project root
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for subdir in ["build/python/Release", "build/python/Debug", "build/Release", "build/Debug"]:
-    p = os.path.join(PROJECT_ROOT, subdir.replace("/", os.sep))
-    if os.path.exists(p):
-        sys.path.insert(0, p)
-        break
+# DSP/Python в sys.path
+_PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PT_DIR not in sys.path:
+    sys.path.insert(0, _PT_DIR)
+
+from common.gpu_loader import GPULoader
+from common.runner import SkipTest
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
 
 # ============================================================================
-# Try to import gpuworklib
+# Try to import dsp_core + dsp_spectrum
 # ============================================================================
 try:
-    import gpuworklib as gw
+    import dsp_core as core
+    import dsp_spectrum as spectrum
     HAS_GPU = True
 except ImportError:
     HAS_GPU = False
-    print("WARNING: gpuworklib not found. Only CPU reference tests will run.")
+    core = None      # type: ignore
+    spectrum = None  # type: ignore
+    print("WARNING: dsp_core/dsp_spectrum not found. Only CPU reference tests will run.")
 
 try:
     import scipy.signal as sig
@@ -86,7 +91,7 @@ def generate_test_signal(channels, points, fs):
 def test_fir_gpu_vs_scipy():
     """FIR: GPU result matches scipy.lfilter reference"""
     if not HAS_GPU:
-        print("SKIP: gpuworklib not available")
+        raise SkipTest("dsp_core/dsp_spectrum not available — check build/libs")
         return
     if not HAS_SCIPY:
         print("SKIP: scipy not available")
@@ -96,8 +101,8 @@ def test_fir_gpu_vs_scipy():
     taps = sig.firwin(FIR_TAPS, FIR_CUTOFF).astype(np.float32)
 
     # GPU
-    ctx = gw.GPUContext(0)
-    fir = gw.FirFilter(ctx)
+    ctx = core.GPUContext(0)
+    fir = spectrum.FirFilter(ctx)
     fir.set_coefficients(taps.tolist())
 
     signal = generate_test_signal(CHANNELS, POINTS, SAMPLE_RATE)
@@ -119,7 +124,7 @@ def test_fir_gpu_vs_scipy():
 def test_fir_basic_properties():
     """FIR: basic property checks"""
     if not HAS_GPU:
-        print("SKIP: gpuworklib not available")
+        raise SkipTest("dsp_core/dsp_spectrum not available — check build/libs")
         return
     if not HAS_SCIPY:
         print("SKIP: scipy not available")
@@ -127,8 +132,8 @@ def test_fir_basic_properties():
 
     taps = sig.firwin(FIR_TAPS, FIR_CUTOFF).astype(np.float32)
 
-    ctx = gw.GPUContext(0)
-    fir = gw.FirFilter(ctx)
+    ctx = core.GPUContext(0)
+    fir = spectrum.FirFilter(ctx)
     fir.set_coefficients(taps.tolist())
 
     assert fir.num_taps == FIR_TAPS
@@ -140,7 +145,7 @@ def test_fir_basic_properties():
 def test_fir_single_channel():
     """FIR: single channel (1D input)"""
     if not HAS_GPU:
-        print("SKIP: gpuworklib not available")
+        raise SkipTest("dsp_core/dsp_spectrum not available — check build/libs")
         return
     if not HAS_SCIPY:
         print("SKIP: scipy not available")
@@ -148,8 +153,8 @@ def test_fir_single_channel():
 
     taps = sig.firwin(32, 0.2).astype(np.float32)
 
-    ctx = gw.GPUContext(0)
-    fir = gw.FirFilter(ctx)
+    ctx = core.GPUContext(0)
+    fir = spectrum.FirFilter(ctx)
     fir.set_coefficients(taps.tolist())
 
     # 1D input
@@ -169,7 +174,7 @@ def test_fir_single_channel():
 def test_iir_gpu_vs_scipy():
     """IIR: GPU result matches scipy.sosfilt reference"""
     if not HAS_GPU:
-        print("SKIP: gpuworklib not available")
+        raise SkipTest("dsp_core/dsp_spectrum not available — check build/libs")
         return
     if not HAS_SCIPY:
         print("SKIP: scipy not available")
@@ -178,7 +183,7 @@ def test_iir_gpu_vs_scipy():
     # Design IIR via scipy
     sos = sig.butter(IIR_ORDER, IIR_CUTOFF, output='sos').astype(np.float64)
 
-    # Convert SOS to list of dicts for gpuworklib
+    # Convert SOS to list of dicts for dsp_spectrum
     sections = []
     for row in sos:
         # SOS format: [b0, b1, b2, a0, a1, a2] (a0=1)
@@ -191,8 +196,8 @@ def test_iir_gpu_vs_scipy():
         })
 
     # GPU
-    ctx = gw.GPUContext(0)
-    iir = gw.IirFilter(ctx)
+    ctx = core.GPUContext(0)
+    iir = spectrum.IirFilter(ctx)
     iir.set_sections(sections)
 
     signal = generate_test_signal(CHANNELS, POINTS, SAMPLE_RATE)
@@ -214,11 +219,11 @@ def test_iir_gpu_vs_scipy():
 def test_iir_basic_properties():
     """IIR: basic property checks"""
     if not HAS_GPU:
-        print("SKIP: gpuworklib not available")
+        raise SkipTest("dsp_core/dsp_spectrum not available — check build/libs")
         return
 
-    ctx = gw.GPUContext(0)
-    iir = gw.IirFilter(ctx)
+    ctx = core.GPUContext(0)
+    iir = spectrum.IirFilter(ctx)
     iir.set_sections([
         {'b0': 0.02, 'b1': 0.04, 'b2': 0.02, 'a1': -1.56, 'a2': 0.64}
     ])
@@ -241,8 +246,8 @@ def plot_filter_results():
 
     taps = sig.firwin(FIR_TAPS, FIR_CUTOFF).astype(np.float32)
 
-    ctx = gw.GPUContext(0)
-    fir = gw.FirFilter(ctx)
+    ctx = core.GPUContext(0)
+    fir = spectrum.FirFilter(ctx)
     fir.set_coefficients(taps.tolist())
 
     signal = generate_test_signal(1, POINTS, SAMPLE_RATE)[0]

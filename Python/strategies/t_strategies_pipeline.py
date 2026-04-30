@@ -18,7 +18,7 @@ test_strategies_pipeline.py — Тест pipeline strategies (5 варианто
     [SKIP] V5_file
 
 GPU API (из py_strategies_rocm.hpp):
-    proc = gpuworklib.AntennaProcessorTest(ctx, n_ant=N, n_samples=M,
+    proc = dsp_strategies.AntennaProcessorTest(ctx, n_ant=N, n_samples=M,
                sample_rate=fs, signal_frequency_hz=f0, debug_mode=True)
 """
 
@@ -32,8 +32,18 @@ if _PT_DIR not in sys.path:
 
 from common.runner import TestRunner, SkipTest
 from common.result import TestResult
-from common.gpu_context import GPUContextManager
 from common.gpu_loader import GPULoader
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
+
+try:
+    import dsp_core as core
+    import dsp_strategies as strategies
+    HAS_GPU = True
+except ImportError:
+    HAS_GPU = False
+    core = None        # type: ignore
+    strategies = None  # type: ignore
 
 from .numpy_reference import NumpyReference
 from .signal_factory import SignalSourceFactory, SignalVariant, SignalConfig
@@ -80,19 +90,18 @@ class TestStrategiesPipeline:
         Если ROCm недоступен → SkipTest (весь набор тестов пропускается).
 
         GPU API (py_strategies_rocm.hpp):
-            gpuworklib.AntennaProcessorTest(ctx, n_ant, n_samples,
+            dsp_strategies.AntennaProcessorTest(ctx, n_ant, n_samples,
                 sample_rate, signal_frequency_hz, debug_mode=True)
         """
-        ctx = GPUContextManager.get_rocm()
-        if ctx is None:
-            raise SkipTest("ROCmGPUContext недоступен — ROCm не установлен или нет GPU")
+        if not HAS_GPU:
+            raise SkipTest("dsp_core/dsp_strategies не найдены")
+        if not hasattr(strategies, "AntennaProcessorTest"):
+            raise SkipTest("AntennaProcessorTest не найден в dsp_strategies")
 
-        gw = GPULoader.get()
-        if gw is None or not hasattr(gw, "AntennaProcessorTest"):
-            raise SkipTest("gpuworklib.AntennaProcessorTest не найден")
+        ctx = core.ROCmGPUContext(0)
 
         # AntennaProcessorTest создаётся ОДИН РАЗ — живёт весь набор тестов
-        self._proc = gw.AntennaProcessorTest(
+        self._proc = strategies.AntennaProcessorTest(
             ctx,
             n_ant               = self._cfg.n_ant,
             n_samples           = self._cfg.n_samples,

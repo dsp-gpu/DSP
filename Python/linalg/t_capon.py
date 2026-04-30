@@ -47,7 +47,8 @@ from common.runner import SkipTest
 PROJECT_ROOT = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
-BINARY_PATH = os.path.join(PROJECT_ROOT, "build/debian-radeon9070/GPUWorkLib")
+# Legacy: GPUWorkLib monolith → DSP-GPU: linalg/build/test_capon (C++ binary)
+BINARY_PATH = os.path.join(PROJECT_ROOT, "linalg", "build", "test_capon")
 HAS_BINARY = os.path.exists(BINARY_PATH)
 
 # ============================================================================

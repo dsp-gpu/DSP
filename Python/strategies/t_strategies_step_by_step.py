@@ -28,7 +28,7 @@ test_strategies_step_by_step.py — пошаговая валидация pipeli
 
 GPU:
     Часть 1 — НЕ НУЖЕН (чистый NumPy).
-    Часть 2 — нужен ROCm + класс AntennaProcessorTest в gpuworklib.
+    Часть 2 — нужен ROCm + класс AntennaProcessorTest в dsp_strategies.
     Если GPU недоступен — Часть 2 пропускается (SkipTest).
 
 ЗАПУСК (из корня проекта):
@@ -167,19 +167,27 @@ class TestNumpyReference:
 
 
 # ============================================================================
-# GPU tests (require gpuworklib with ENABLE_ROCM)
+# GPU tests (require dsp_strategies with ENABLE_ROCM)
 # ============================================================================
 
+_PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PT_DIR not in sys.path:
+    sys.path.insert(0, _PT_DIR)
+
+from common.gpu_loader import GPULoader
+from common.runner import SkipTest
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
+
 try:
-    sys.path.insert(0, os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        "build", "debian-radeon9070", "python"
-    ))
-    import gpuworklib
-    HAS_GPU = (hasattr(gpuworklib, 'AntennaProcessorTest') and
-               hasattr(gpuworklib, 'ROCmGPUContext'))
+    import dsp_core as core
+    import dsp_strategies as strategies
+    HAS_GPU = (hasattr(strategies, 'AntennaProcessorTest') and
+               hasattr(core, 'ROCmGPUContext'))
 except ImportError:
     HAS_GPU = False
+    core = None        # type: ignore
+    strategies = None  # type: ignore
 
 class TestGPUvsNumPy:
     """Compare GPU pipeline output with NumPy reference."""
@@ -187,10 +195,9 @@ class TestGPUvsNumPy:
     def setUp(self):
         """Create GPU context and processor once. Call before running tests."""
         if not HAS_GPU:
-            from common.runner import SkipTest
-            raise SkipTest("gpuworklib with ROCm strategies not available")
-        self.ctx = gpuworklib.ROCmGPUContext(0)
-        self.proc = gpuworklib.AntennaProcessorTest(
+            raise SkipTest("dsp_core/dsp_strategies with ROCm not available")
+        self.ctx = core.ROCmGPUContext(0)
+        self.proc = strategies.AntennaProcessorTest(
             self.ctx,
             n_ant=N_ANT,
             n_samples=N_SAMPLES,
@@ -325,6 +332,6 @@ if __name__ == "__main__":
                 except Exception as e:
                     print(f"  FAIL: {name} — {e}")
     else:
-        print("\n--- GPU tests skipped (no gpuworklib with ROCm) ---")
+        print("\n--- GPU tests skipped (no dsp_strategies with ROCm) ---")
 
     print("\nDone.")

@@ -1,5 +1,5 @@
 """
-test_heterodyne.py — Tests for HeterodyneDechirp (LFM dechirp pipeline)
+test_heterodyne.py — Tests for HeterodyneROCm (LFM dechirp pipeline)
 
 Tests:
   1. Basic dechirp — single antenna, known delay, verify f_beat
@@ -10,8 +10,12 @@ Tests:
 Parameters: fs=12MHz, B=2MHz, N=8000, mu=3e9 Hz/s
 search_range=5000 => half_range=2500 => left bins [0..2499] (~0..3.66 MHz)
 
+TODO(Debian 2026-05-03+): первый запуск после миграции с HeterodyneDechirp на
+HeterodyneROCm.dechirp/correct + np.fft. Подкрутить F_BEAT_TOL_HZ если float32
+даст расхождение vs legacy результаты.
+
 @author Kodo (AI Assistant)
-@date 2026-02-21
+@date 2026-02-21 (migrated 2026-04-30: HeterodyneDechirp → HeterodyneROCm + np.fft)
 """
 
 import sys
@@ -23,13 +27,17 @@ if _PT_DIR not in sys.path:
     sys.path.insert(0, _PT_DIR)
 from common.runner import SkipTest, TestRunner
 from common.gpu_loader import GPULoader
-from common.gpu_context import GPUContextManager
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
 
 try:
-    import gpuworklib
-    HAS_HETERODYNE = hasattr(gpuworklib, 'HeterodyneDechirp')
+    import dsp_core as core
+    import dsp_heterodyne as heterodyne
+    HAS_HETERODYNE = hasattr(heterodyne, 'HeterodyneROCm')
 except ImportError:
     HAS_HETERODYNE = False
+    core = None        # type: ignore
+    heterodyne = None  # type: ignore
 
 
 # ============================================================================
@@ -53,7 +61,7 @@ PLOTS_DIR = os.path.join(_PT_DIR, '..', 'Results', 'Plots', 'heterodyne')
 
 
 # ============================================================================
-# Helper: generate delayed LFM signal on CPU (reference)
+# Helpers: LFM signal generation (CPU reference) + dechirp+FFT pipeline
 # ============================================================================
 
 def generate_lfm_rx(delays_us, f_start=F_START, f_end=F_END, fs=FS, n=N):
@@ -69,35 +77,83 @@ def generate_lfm_rx(delays_us, f_start=F_START, f_end=F_END, fs=FS, n=N):
     return rx
 
 
+def generate_lfm_reference(f_start=F_START, f_end=F_END, fs=FS, n=N):
+    """Опорный (un-delayed) LFM сигнал — нужен для dechirp = rx * conj(ref)."""
+    return generate_lfm_rx([0.0], f_start, f_end, fs, n).ravel()
+
+
+def heterodyne_pipeline(het, rx, num_antennas, fs=FS, n=N, mu=MU):
+    """Полный pipeline после миграции: GPU dechirp + CPU FFT/argmax/SNR.
+
+    Возвращает структуру совместимую с legacy result:
+      {
+        'success': True,
+        'antennas': [
+          {'f_beat_hz': float, 'peak_snr_db': float, 'range_m': float},
+          ...
+        ]
+      }
+    """
+    ref = generate_lfm_reference(fs=fs, n=n)
+    # broadcast ref на все антенны
+    ref_multi = np.tile(ref, num_antennas).astype(np.complex64)
+    rx_flat = rx.ravel().astype(np.complex64)
+
+    # GPU: dechirp = rx * conj(ref)
+    dc = het.dechirp(rx_flat, ref_multi)
+    dc = dc.reshape(num_antennas, n)
+
+    # CPU: FFT + поиск пика + SNR на каждую антенну
+    antennas = []
+    for ant_idx in range(num_antennas):
+        spec = np.fft.fft(dc[ant_idx])
+        mag = np.abs(spec)
+        # ищем в первой половине (низкочастотные beats)
+        half = n // 2
+        peak_bin = int(np.argmax(mag[:half]))
+        f_beat = peak_bin * fs / n
+        peak_val = mag[peak_bin]
+
+        # SNR: peak vs avg от двух соседей вне guard
+        guard = 5
+        left  = max(peak_bin - guard - 5, 0)
+        right = min(peak_bin + guard + 5, half - 1)
+        noise_floor = (mag[left] + mag[right]) / 2.0 + 1e-12
+        snr_db = 20.0 * np.log10(peak_val / noise_floor)
+
+        # Range из f_beat: R = c * f_beat / (2 * mu)
+        range_m = C_LIGHT * f_beat / (2.0 * mu)
+
+        antennas.append({
+            'f_beat_hz': float(f_beat),
+            'peak_snr_db': float(snr_db),
+            'range_m': float(range_m),
+        })
+    return {'success': True, 'error_message': '', 'antennas': antennas}
+
+
 # ============================================================================
 # Tests
 # ============================================================================
 
 class TestHeterodyne:
-    """Tests for HeterodyneDechirp."""
+    """Tests for HeterodyneROCm (legacy HeterodyneDechirp.process replaced
+    with dechirp + np.fft + argmax pipeline — see heterodyne_pipeline helper)."""
 
     def setUp(self):
         if not HAS_HETERODYNE:
-            raise SkipTest("HeterodyneDechirp not available")
-        gw = GPULoader.get()
-        if gw is None:
-            raise SkipTest("gpuworklib не найден")
-        ctx = GPUContextManager.get_rocm()
-        if ctx is None:
-            ctx = GPUContextManager.get_opencl()
-        if ctx is None:
-            raise SkipTest("GPU context недоступен")
-        self._ctx = ctx
-        self._het = gpuworklib.HeterodyneDechirp(ctx)
+            raise SkipTest("dsp_core/dsp_heterodyne not found — check build/libs")
+        self._ctx = core.ROCmGPUContext(0)
+        self._het = heterodyne.HeterodyneROCm(self._ctx)
         self._het.set_params(float(F_START), float(F_END), float(FS), int(N), int(ANTENNAS))
 
     def test_basic_dechirp_single_antenna(self):
         """Single antenna with delay=100us -> f_beat=300kHz."""
-        het = gpuworklib.HeterodyneDechirp(self._ctx)
+        het = heterodyne.HeterodyneROCm(self._ctx)
         het.set_params(float(F_START), float(F_END), float(FS), int(N), 1)
 
         rx = generate_lfm_rx([100.0])
-        result = het.process(rx.ravel())
+        result = heterodyne_pipeline(het, rx, num_antennas=1)
 
         assert result['success'], f"Process failed: {result['error_message']}"
         assert len(result['antennas']) == 1
@@ -116,7 +172,7 @@ class TestHeterodyne:
     def test_multiple_antennas_range(self):
         """5 antennas with delays [100..500] us, verify f_beat and range."""
         rx = generate_lfm_rx(DELAYS_US)
-        result = self._het.process(rx.ravel())
+        result = heterodyne_pipeline(self._het, rx, num_antennas=ANTENNAS)
 
         assert result['success'], f"Process failed: {result['error_message']}"
         assert len(result['antennas']) == ANTENNAS
@@ -140,7 +196,7 @@ class TestHeterodyne:
     def test_snr_positive(self):
         """All SNR values should be > 0 dB for clean LFM signal."""
         rx = generate_lfm_rx(DELAYS_US)
-        result = self._het.process(rx.ravel())
+        result = heterodyne_pipeline(self._het, rx, num_antennas=ANTENNAS)
         assert result['success']
 
         print()
@@ -164,7 +220,7 @@ class TestHeterodyne:
             return  # matplotlib not available — skip silently
 
         rx = generate_lfm_rx(DELAYS_US)
-        result = self._het.process(rx.ravel())
+        result = heterodyne_pipeline(self._het, rx, num_antennas=ANTENNAS)
         assert result['success']
 
         delays_arr = np.array(DELAYS_US, dtype=float)
@@ -180,7 +236,7 @@ class TestHeterodyne:
         gs  = GridSpec(3, 2, figure=fig, hspace=0.55, wspace=0.40,
                        top=0.88, bottom=0.09)
 
-        fig.suptitle('LFM Dechirp — GPU результаты (HeterodyneDechirp)',
+        fig.suptitle('LFM Dechirp — GPU результаты (HeterodyneROCm)',
                      fontsize=13, fontweight='bold')
         fig.text(0.5, 0.915,
                  f'fs={FS/1e6:.0f} MHz | B={BANDWIDTH/1e6:.0f} MHz | '

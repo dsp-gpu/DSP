@@ -20,12 +20,18 @@ _PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _PT_DIR not in sys.path:
     sys.path.insert(0, _PT_DIR)
 from common.runner import SkipTest, TestRunner
+from common.gpu_loader import GPULoader
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
 
 try:
-    import gpuworklib
-    HAS_ROCM = hasattr(gpuworklib, 'FMCorrelatorROCm')
+    import dsp_core as core
+    import dsp_radar as radar
+    HAS_ROCM = hasattr(radar, 'FMCorrelatorROCm')
 except ImportError:
     HAS_ROCM = False
+    core = None   # type: ignore
+    radar = None  # type: ignore
 
 
 class TestFMCorrelatorROCm:
@@ -34,11 +40,11 @@ class TestFMCorrelatorROCm:
     def setUp(self):
         if not HAS_ROCM:
             raise SkipTest("ROCm not available or FMCorrelatorROCm not found")
-        self._ctx = gpuworklib.ROCmGPUContext(0)
+        self._ctx = core.ROCmGPUContext(0)
 
     def test_autocorrelation(self):
         """Autocorrelation: ref vs ref -> peak at j=0, SNR > 10."""
-        corr = gpuworklib.FMCorrelatorROCm(self._ctx)
+        corr = radar.FMCorrelatorROCm(self._ctx)
         corr.set_params(fft_size=4096, num_shifts=1, num_signals=1,
                         num_output_points=200)
         ref = corr.generate_msequence()
@@ -59,7 +65,7 @@ class TestFMCorrelatorROCm:
         N, K, S = 4096, 10, 5
         shift_step = 2
 
-        corr = gpuworklib.FMCorrelatorROCm(self._ctx)
+        corr = radar.FMCorrelatorROCm(self._ctx)
         corr.set_params(fft_size=N, num_shifts=K, num_signals=S,
                         num_output_points=200)
         corr.prepare_reference()
@@ -85,7 +91,7 @@ class TestFMCorrelatorROCm:
         N, K, S = 4096, 8, 4
         shift_step = 2
 
-        corr = gpuworklib.FMCorrelatorROCm(self._ctx)
+        corr = radar.FMCorrelatorROCm(self._ctx)
         corr.set_params(fft_size=N, num_shifts=K, num_signals=S,
                         num_output_points=200)
 
@@ -105,7 +111,7 @@ class TestFMCorrelatorROCm:
 
     def test_params_only_mode(self):
         """Test mode where only parameters are passed — no data transfer."""
-        corr = gpuworklib.FMCorrelatorROCm(self._ctx)
+        corr = radar.FMCorrelatorROCm(self._ctx)
         corr.set_params(fft_size=8192, num_shifts=16, num_signals=8,
                         num_output_points=500)
         corr.prepare_reference()

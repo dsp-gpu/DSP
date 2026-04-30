@@ -2,7 +2,7 @@
 test_signal_gen_integration.py — интеграционные тесты генераторов + pipeline
 =============================================================================
 
-Тесты 4-7 из оригинального test_gpuworklib.py.
+Тесты 4-7 из оригинального t_signal_to_spectrum.py (legacy GPUWorkLib).
 
 Tests:
   test_multichannel_different_frequencies — параллельная генерация
@@ -24,18 +24,23 @@ if _PT_DIR not in sys.path:
     sys.path.insert(0, _PT_DIR)
 from common.runner import SkipTest, TestRunner
 from common.gpu_loader import GPULoader
-from common.gpu_context import GPUContextManager
-from integration.conftest import make_sig_gen, make_fft_proc
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
+
+try:
+    import dsp_core as core
+    HAS_GPU = True
+except ImportError:
+    HAS_GPU = False
+    core = None  # type: ignore
+
+from integration.factories import make_sig_gen, make_fft_proc
 
 
 def _make_ctx_and_gen():
-    gw = GPULoader.get()
-    if gw is None:
-        raise SkipTest("gpuworklib не найден")
-    ctx = GPUContextManager.get_rocm() or GPUContextManager.get_opencl()
-    if ctx is None:
-        raise SkipTest("GPU context недоступен")
-    return gw, ctx
+    if not HAS_GPU:
+        raise SkipTest("dsp_core не найден")
+    return None, core.ROCmGPUContext(0)  # legacy: tuple (gw, ctx); gw больше не нужен
 
 
 # ─────────────────────────────────────────────────────────────────────────────

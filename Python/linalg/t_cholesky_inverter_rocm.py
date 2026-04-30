@@ -11,7 +11,7 @@ Python тесты CholeskyInverterROCm (Task_11 v2: SymmetrizeMode).
 
 Требования:
     - ROCm (AMD Radeon 9070 или совместимое GPU)
-    - gpuworklib собран с ENABLE_ROCM=ON
+    - dsp_linalg собран с ENABLE_ROCM=ON
     - numpy
 """
 
@@ -23,6 +23,18 @@ _PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _PT_DIR not in sys.path:
     sys.path.insert(0, _PT_DIR)
 from common.runner import SkipTest, TestRunner
+from common.gpu_loader import GPULoader
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
+
+try:
+    import dsp_core as core
+    import dsp_linalg as linalg
+    HAS_GPU = True
+except ImportError:
+    HAS_GPU = False
+    core = None    # type: ignore
+    linalg = None  # type: ignore
 
 
 # ============================================================================
@@ -55,19 +67,17 @@ class TestCholeskyInverterROCm:
     """Python тесты CholeskyInverterROCm."""
 
     def setUp(self):
+        if not HAS_GPU:
+            raise SkipTest("dsp_core/dsp_linalg не найдены")
         try:
-            import gpuworklib
-            self._gw = gpuworklib
-            ctx = gpuworklib.ROCmGPUContext(0)
+            ctx = core.ROCmGPUContext(0)
             self._ctx = ctx
-            self._inverter = gpuworklib.CholeskyInverterROCm(
-                ctx, gpuworklib.SymmetrizeMode.GpuKernel
+            self._inverter = linalg.CholeskyInverterROCm(
+                ctx, linalg.SymmetrizeMode.GpuKernel
             )
-            self._inverter_roundtrip = gpuworklib.CholeskyInverterROCm(
-                ctx, gpuworklib.SymmetrizeMode.Roundtrip
+            self._inverter_roundtrip = linalg.CholeskyInverterROCm(
+                ctx, linalg.SymmetrizeMode.Roundtrip
             )
-        except ImportError:
-            raise SkipTest("gpuworklib не найден")
         except Exception as e:
             raise SkipTest(f"ROCm недоступен: {e}")
 
@@ -145,14 +155,13 @@ class TestCholeskyInverterROCm:
 
     def test_set_symmetrize_mode(self):
         """set_symmetrize_mode / get_symmetrize_mode работают."""
-        gw = self._gw
-        inv = gw.CholeskyInverterROCm(
-            self._ctx, gw.SymmetrizeMode.GpuKernel
+        inv = linalg.CholeskyInverterROCm(
+            self._ctx, linalg.SymmetrizeMode.GpuKernel
         )
-        assert inv.get_symmetrize_mode() == gw.SymmetrizeMode.GpuKernel
+        assert inv.get_symmetrize_mode() == linalg.SymmetrizeMode.GpuKernel
 
-        inv.set_symmetrize_mode(gw.SymmetrizeMode.Roundtrip)
-        assert inv.get_symmetrize_mode() == gw.SymmetrizeMode.Roundtrip
+        inv.set_symmetrize_mode(linalg.SymmetrizeMode.Roundtrip)
+        assert inv.get_symmetrize_mode() == linalg.SymmetrizeMode.Roundtrip
 
         # Проверить что работает после смены режима
         n = 5

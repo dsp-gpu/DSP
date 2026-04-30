@@ -27,10 +27,17 @@ if _PT_DIR not in sys.path:
 from common.gpu_loader import GPULoader
 from common.runner import SkipTest
 
-gpuworklib = GPULoader.get()
-HAS_GPU = gpuworklib is not None
-if not HAS_GPU:
-    print(f"WARNING: gpuworklib not found. Skipping GPU tests. (searched: {GPULoader.loaded_from()})")
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
+
+try:
+    import dsp_core as core
+    import dsp_spectrum as spectrum
+    HAS_GPU = True
+except ImportError:
+    HAS_GPU = False
+    core = None      # type: ignore
+    spectrum = None  # type: ignore
+    print(f"WARNING: dsp_core/dsp_spectrum not found. Skipping GPU tests. (searched: {GPULoader.loaded_from()})")
 
 try:
     import scipy.signal as ss
@@ -82,8 +89,8 @@ def scipy_fir_ref(coeffs: list, data: np.ndarray) -> np.ndarray:
 
 def make_ctx_fir():
     """Create ROCm context and FIR filter."""
-    ctx = gpuworklib.ROCmGPUContext(0)
-    fir = gpuworklib.FirFilterROCm(ctx)
+    ctx = core.ROCmGPUContext(0)
+    fir = spectrum.FirFilterROCm(ctx)
     return ctx, fir
 
 

@@ -45,7 +45,8 @@ import numpy as np
 PROJECT_ROOT = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
-BINARY_PATH = os.path.join(PROJECT_ROOT, "build/debian-radeon9070/GPUWorkLib")
+# Legacy: GPUWorkLib monolith → DSP-GPU: stats/build/test_stats_rocm
+BINARY_PATH = os.path.join(PROJECT_ROOT, "stats", "build", "test_stats_rocm")
 HAS_BINARY = os.path.exists(BINARY_PATH)
 
 try:

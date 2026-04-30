@@ -3,7 +3,7 @@
 Test: MovingAverageFilterROCm — GPU скользящие средние (ROCm) vs numpy reference
 
 Filters: SMA, EMA, MMA (Wilder), DEMA, TEMA
-GPU class: gpuworklib.MovingAverageFilterROCm
+GPU class: dsp_spectrum.MovingAverageFilterROCm
 
 Classes:
   TestMovingAverageMath  — CPU reference math (no GPU required)
@@ -24,7 +24,7 @@ Note:
   Tolerance GPU vs numpy reference: < 1e-4 (float32).
   Python references implement float32 arithmetic to match GPU kernels exactly.
   GPU API (Python binding):
-    ma = gpuworklib.MovingAverageFilterROCm(ctx)
+    ma = spectrum.MovingAverageFilterROCm(ctx)
     ma.set_params("EMA", window_size)   # type: "SMA"/"EMA"/"MMA"/"DEMA"/"TEMA"
     ma.process(data)                    # 1D or 2D (channels, points) complex64
     ma.is_ready()                       # bool
@@ -49,10 +49,17 @@ if _PT_DIR not in sys.path:
 from common.gpu_loader import GPULoader
 from common.runner import TestRunner, SkipTest
 
-gpuworklib = GPULoader.get()
-HAS_GPU = gpuworklib is not None
-if not HAS_GPU:
-    print(f"WARNING: gpuworklib not found. (searched: {GPULoader.loaded_from()})")
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
+
+try:
+    import dsp_core as core
+    import dsp_spectrum as spectrum
+    HAS_GPU = True
+except ImportError:
+    HAS_GPU = False
+    core = None      # type: ignore
+    spectrum = None  # type: ignore
+    print(f"WARNING: dsp_core/dsp_spectrum not found. (searched: {GPULoader.loaded_from()})")
 
 # ============================================================================
 # Parameters
@@ -249,9 +256,9 @@ class TestMovingAverageROCm:
 
     def setUp(self):
         if not HAS_GPU:
-            raise SkipTest("gpuworklib not found — ROCm GPU required")
-        self.ctx = gpuworklib.ROCmGPUContext(0)
-        self.ma  = gpuworklib.MovingAverageFilterROCm(self.ctx)
+            raise SkipTest("dsp_core/dsp_spectrum not found — ROCm GPU required")
+        self.ctx = core.ROCmGPUContext(0)
+        self.ma  = spectrum.MovingAverageFilterROCm(self.ctx)
 
     def test_channel_independence(self):
         """256 channels with distinct signals: GPU states must not cross-contaminate."""

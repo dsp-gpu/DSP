@@ -9,7 +9,7 @@ test_zero_copy.py — Python тесты ZeroCopy Bridge (OpenCL → ROCm)
 
 Требования:
     - Linux + AMD GPU + ROCm
-    - Собранный gpuworklib.so с ENABLE_ROCM=ON
+    - Собранный dsp_core.so с ENABLE_ROCM=ON
     - Запуск в группе render: sg render -c "python3 ..."
 
 Автор: Кодо (AI Assistant)
@@ -19,12 +19,16 @@ test_zero_copy.py — Python тесты ZeroCopy Bridge (OpenCL → ROCm)
 import sys
 import os
 
-# Добавляем путь к .so (build/debian-radeon9070/python/)
-BUILD_DIR = os.path.join(os.path.dirname(__file__), '../../build/debian-radeon9070/python')
-if os.path.isdir(BUILD_DIR):
-    sys.path.insert(0, BUILD_DIR)
+# DSP/Python в sys.path
+_PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PT_DIR not in sys.path:
+    sys.path.insert(0, _PT_DIR)
 
-import gpuworklib
+from common.gpu_loader import GPULoader
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
+
+import dsp_core as core
 
 PASSED = 0
 FAILED = 0
@@ -49,7 +53,7 @@ def run_test(name, fn):
 # ============================================================================
 
 def test_hybrid_context_creates():
-    ctx = gpuworklib.HybridGPUContext(0)
+    ctx = core.HybridGPUContext(0)
     assert ctx is not None
     assert ctx.device_index == 0
 
@@ -59,7 +63,7 @@ def test_hybrid_context_creates():
 # ============================================================================
 
 def test_device_names_not_empty():
-    ctx = gpuworklib.HybridGPUContext(0)
+    ctx = core.HybridGPUContext(0)
     print(f"\n    OpenCL device: {ctx.opencl_device_name}")
     print(f"    ROCm device:   {ctx.rocm_device_name}")
     print(f"    Combined:      {ctx.device_name}")
@@ -73,7 +77,7 @@ def test_device_names_not_empty():
 # ============================================================================
 
 def test_zero_copy_method_detection():
-    ctx = gpuworklib.HybridGPUContext(0)
+    ctx = core.HybridGPUContext(0)
     method = ctx.zero_copy_method
     print(f"\n    ZeroCopy method: {method}")
 
@@ -92,7 +96,7 @@ def test_zero_copy_method_detection():
 # ============================================================================
 
 def test_zero_copy_supported_is_bool():
-    ctx = gpuworklib.HybridGPUContext(0)
+    ctx = core.HybridGPUContext(0)
     supported = ctx.is_zero_copy_supported
     print(f"\n    is_zero_copy_supported: {supported}")
     assert isinstance(supported, bool)
@@ -103,7 +107,7 @@ def test_zero_copy_supported_is_bool():
 # ============================================================================
 
 def test_hybrid_repr():
-    ctx = gpuworklib.HybridGPUContext(0)
+    ctx = core.HybridGPUContext(0)
     r = repr(ctx)
     print(f"\n    repr: {r}")
     assert "HybridGPUContext" in r
@@ -116,7 +120,7 @@ def test_hybrid_repr():
 # ============================================================================
 
 def test_context_manager():
-    with gpuworklib.HybridGPUContext(0) as ctx:
+    with core.HybridGPUContext(0) as ctx:
         assert ctx is not None
         assert ctx.device_index == 0
 
@@ -126,7 +130,7 @@ def test_context_manager():
 # ============================================================================
 
 def test_zero_copy_report():
-    ctx = gpuworklib.HybridGPUContext(0)
+    ctx = core.HybridGPUContext(0)
 
     print(f"\n    === ZeroCopy Report ===")
     print(f"    Device:               {ctx.opencl_device_name}")

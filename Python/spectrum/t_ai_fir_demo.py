@@ -1,5 +1,5 @@
 """
-ai_fir_demo.py — AI-управляемый FIR-фильтр для GPUWorkLib
+ai_fir_demo.py — AI-управляемый FIR-фильтр для DSP-GPU
 ==========================================================
 
 Демонстрация: текстовая команда → AI → scipy коэффициенты → GPU пайплайн → графики
@@ -28,22 +28,26 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy import signal as sp_signal
 
-# ── GPUWorkLib (Python_test/filters/ -> 2 levels up) ──
-BUILD_PATHS = [
-    os.path.join(os.path.dirname(__file__), '..', '..', 'build', 'python', 'Debug'),
-    os.path.join(os.path.dirname(__file__), '..', '..', 'build', 'python', 'Release'),
-    os.path.join(os.path.dirname(__file__), '..', '..', 'build', 'python'),
-]
-for p in BUILD_PATHS:
-    if os.path.isdir(p):
-        sys.path.insert(0, os.path.abspath(p))
-        break
+# ── DSP/Python в sys.path ──
+_PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PT_DIR not in sys.path:
+    sys.path.insert(0, _PT_DIR)
+
+from common.gpu_loader import GPULoader
+from common.runner import SkipTest
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
 
 try:
-    import gpuworklib
+    import dsp_core as core
+    import dsp_signal_generators as signal_generators
+    import dsp_spectrum as spectrum
+    HAS_GPU = True
 except ImportError:
-    print("ERROR: gpuworklib not found. Build with -DBUILD_PYTHON=ON")
-    sys.exit(1)
+    HAS_GPU = False
+    core = None              # type: ignore
+    signal_generators = None  # type: ignore
+    spectrum = None          # type: ignore
 
 # ════════════════════════════════════════════════════════════════════════════
 # КОНФИГУРАЦИЯ
@@ -276,7 +280,7 @@ def apply_filter(signal_data: np.ndarray, h: np.ndarray) -> np.ndarray:
     Применить FIR-фильтр к сигналу.
 
     CPU (scipy): точный эталон.
-    TODO: GPU через будущий gpuworklib.FIRFilter (когда будет реализован).
+    TODO: GPU через dsp_spectrum.FirFilterROCm (CPU fallback пока через scipy).
     """
     # Применяем к Re и Im независимо (h — вещественный фильтр)
     re_filtered = sp_signal.lfilter(h, [1.0], signal_data.real)
@@ -461,7 +465,7 @@ def run_pipeline(filter_request: str, fs: float = 44100.0,
     Полный AI-DSP пайплайн:
       1. LLM парсит текстовый запрос → параметры фильтра
       2. scipy проектирует FIR → коэффициенты h[]
-      3. GPU (gpuworklib) генерирует тестовые сигналы
+      3. GPU (dsp_spectrum) применяет фильтр к тестовым сигналам
       4. FIR применяется (пока CPU/scipy, будет GPU)
       5. Валидация + АЧХ + графики
 
@@ -476,9 +480,11 @@ def run_pipeline(filter_request: str, fs: float = 44100.0,
     print("=" * 60)
 
     # ── GPU контекст ─────────────────────────────────────────────────
-    ctx = gpuworklib.ROCmGPUContext(0)
-    gen = gpuworklib.SignalGenerator(ctx)
-    fft = gpuworklib.FFTProcessorROCm(ctx)
+    if not HAS_GPU:
+        raise SkipTest(
+            "dsp_core/dsp_spectrum not found — check build/libs")
+    ctx = core.ROCmGPUContext(0)
+    fft = spectrum.FFTProcessorROCm(ctx)
     print(f"  GPU: {ctx.device_name}")
 
     # ── Шаг 1: AI парсит запрос ──────────────────────────────────────
@@ -502,12 +508,13 @@ def run_pipeline(filter_request: str, fs: float = 44100.0,
 
     print(f"  Тестовые частоты: {[f'{f:.0f} Гц' for f in test_freqs]}")
 
-    # Генерируем и суммируем синусоиды (на GPU)
+    # Генерируем и суммируем CW синусоиды (NumPy — после миграции SignalGenerator
+    # из legacy SignalGenerator; для CW не нужен GPU, np.exp прямо)
     amplitudes = [1.0, 0.7, 0.5] + [0.3] * max(0, len(test_freqs) - 3)
+    t_axis = np.arange(num_samples) / fs
     mixed = np.zeros(num_samples, dtype=np.complex64)
     for i, (f, a) in enumerate(zip(test_freqs, amplitudes)):
-        s = gen.generate_cw(freq=f, fs=fs, length=num_samples, amplitude=a)
-        mixed += s.astype(np.complex64)
+        mixed += (a * np.exp(1j * 2 * np.pi * f * t_axis)).astype(np.complex64)
         print(f"  + синусоида {f:.0f} Гц (A={a})")
 
     # ── Шаг 4: применение фильтра ────────────────────────────────────

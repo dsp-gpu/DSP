@@ -4,7 +4,7 @@ test_heterodyne_comparison.py
 GPU vs CPU heterodyne dechirp comparison report.
 
 Generates a detailed markdown report and annotated comparison plots:
-  1. Runs full GPU pipeline (gpuworklib.HeterodyneDechirp)
+  1. Runs full GPU pipeline (dsp_heterodyne.HeterodyneROCm + np.fft + argmax)
   2. Runs CPU reference pipeline (NumPy FFT + parabolic interp)
   3. Compares f_beat, range, SNR per antenna
   4. Saves markdown report + annotated PNG plots
@@ -12,8 +12,11 @@ Generates a detailed markdown report and annotated comparison plots:
 Parameters: fs=12MHz, B=2MHz, N=8000, mu=3e9 Hz/s
 search_range=5000 => охват [0..2499] бин (~3.66 МГц)
 
+TODO(Debian 2026-05-03+): первый запуск после миграции с HeterodyneDechirp на
+HeterodyneROCm. Подкрутить tolerance если float32 даст расхождение.
+
 @author Kodo (AI Assistant)
-@date 2026-02-21
+@date 2026-02-21 (migrated 2026-04-30: HeterodyneDechirp → HeterodyneROCm + np.fft)
 """
 
 import sys
@@ -21,22 +24,22 @@ import os
 import time
 import numpy as np
 
-# -- Path to gpuworklib --
-BUILD_PATHS = [
-    os.path.join(os.path.dirname(__file__), '..', '..', 'build', 'python', 'Debug'),
-    os.path.join(os.path.dirname(__file__), '..', '..', 'build', 'python', 'Release'),
-    os.path.join(os.path.dirname(__file__), '..', '..', 'build', 'python'),
-]
-for p in BUILD_PATHS:
-    if os.path.isdir(p):
-        sys.path.insert(0, os.path.abspath(p))
-        break
+_PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PT_DIR not in sys.path:
+    sys.path.insert(0, _PT_DIR)
+from common.runner import SkipTest
+from common.gpu_loader import GPULoader
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
 
 try:
-    import gpuworklib
+    import dsp_core as core
+    import dsp_heterodyne as heterodyne
+    HAS_GPU = True
 except ImportError:
-    print("ERROR: gpuworklib not found. Build with -DBUILD_PYTHON=ON")
-    sys.exit(1)
+    HAS_GPU = False
+    core = None        # type: ignore
+    heterodyne = None  # type: ignore
 
 try:
     import matplotlib
@@ -137,23 +140,55 @@ def cpu_pipeline(delays_s):
 # ============================================================================
 
 def gpu_pipeline(delays_s):
-    """Full GPU pipeline via gpuworklib.HeterodyneDechirp."""
-    ctx = gpuworklib.ROCmGPUContext(0)
-    het = gpuworklib.HeterodyneDechirp(ctx)
-    het.set_params(F_START, F_END, FS, N, len(delays_s))
+    """Full GPU pipeline: dsp_heterodyne.HeterodyneROCm.dechirp + CPU FFT/argmax."""
+    if not HAS_GPU:
+        raise SkipTest("dsp_core/dsp_heterodyne not found")
+
+    ctx = core.ROCmGPUContext(0)
+    het = heterodyne.HeterodyneROCm(ctx)
+    n_ant = len(delays_s)
+    het.set_params(F_START, F_END, FS, N, n_ant)
 
     t  = np.arange(N, dtype=np.float32) / FS
-    rx = np.zeros((len(delays_s), N), dtype=np.complex64)
+    rx = np.zeros((n_ant, N), dtype=np.complex64)
     for i, tau in enumerate(delays_s):
         t_d = t - tau
         phase = 2 * np.pi * (0.5 * MU * t_d**2 + F_START * t_d)
         rx[i] = np.exp(1j * phase).astype(np.complex64)
 
-    result = het.process(rx.ravel())
-    if not result['success']:
-        raise RuntimeError(f"GPU pipeline failed: {result['error_message']}")
+    # Reference (un-delayed) LFM для dechirp
+    phase_ref = 2 * np.pi * (0.5 * MU * t**2 + F_START * t)
+    ref_single = np.exp(1j * phase_ref).astype(np.complex64)
+    ref_multi = np.tile(ref_single, n_ant).astype(np.complex64)
 
-    return result['antennas']
+    # GPU dechirp
+    dc = het.dechirp(rx.ravel(), ref_multi).reshape(n_ant, N)
+
+    # CPU FFT + argmax + SNR + range на каждую антенну (формат legacy result['antennas'])
+    antennas = []
+    for ant_idx in range(n_ant):
+        spec = np.fft.fft(dc[ant_idx])
+        mag = np.abs(spec)
+        half = N // 2
+        peak_bin = int(np.argmax(mag[:half]))
+        f_beat = peak_bin * FS / N
+        peak_val = mag[peak_bin]
+
+        guard = 5
+        left  = max(peak_bin - guard - 5, 0)
+        right = min(peak_bin + guard + 5, half - 1)
+        noise_floor = (mag[left] + mag[right]) / 2.0 + 1e-12
+        snr_db = 20.0 * np.log10(peak_val / noise_floor)
+
+        c_light = 3e8
+        range_m = c_light * f_beat / (2.0 * MU)
+
+        antennas.append({
+            'f_beat_hz': float(f_beat),
+            'peak_snr_db': float(snr_db),
+            'range_m': float(range_m),
+        })
+    return antennas
 
 
 # ============================================================================
@@ -176,7 +211,7 @@ def run_comparison():
     cpu_time = time.perf_counter() - t0
     print(f"  CPU time: {cpu_time*1000:.1f} ms")
 
-    print("Running GPU pipeline (gpuworklib, float32)...")
+    print("Running GPU pipeline (dsp_heterodyne ROCm, float32)...")
     _ = gpu_pipeline(DELAYS_S)          # прогрев
     t0 = time.perf_counter()
     gpu_results = gpu_pipeline(DELAYS_S)
@@ -501,7 +536,7 @@ def generate_comparison_plot(cpu_results, gpu_results, cpu_time, gpu_time):
 
     # ── подвал ───────────────────────────────────────────────────────────────
     fig.text(0.5, 0.01,
-             'GPUWorkLib | HeterodyneDechirp | OpenCL float32 | '
+             'DSP-GPU | HeterodyneROCm.dechirp + np.fft | float32 | '
              f'search_range=5000 | CPU {cpu_time*1000:.1f} мс | '
              f'GPU {gpu_time*1000:.1f} мс',
              ha='center', fontsize=7.5, color='gray', style='italic')

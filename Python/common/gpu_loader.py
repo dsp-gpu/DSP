@@ -25,9 +25,8 @@ Singleton (GoF) + Protected Variations (GRASP):
     import dsp_spectrum as spectrum
     ctx = core.ROCmGPUContext()
 
-Legacy (deprecated, удаляется после миграции Python тестов):
-    gw = GPULoader.get()       # возвращает shim gpuworklib (если ещё есть)
-    ctx = gw.GPUContext()
+Legacy (DEPRECATED после Phase A5 — gpuworklib shim удалён):
+    gw = GPULoader.get()       # ВСЕГДА None — используй прямой import dsp_core
 
 @author Кодо (AI Assistant)
 @date 2026-04-12 (Phase 3b, dsp-gpu модульная архитектура)
@@ -58,36 +57,36 @@ _SEARCH_PATHS = [
 
 
 class GPULoader:
-    """Singleton — загружает dsp_core и возвращает gpuworklib shim.
+    """Singleton — настраивает sys.path для dsp_core / dsp_<module>.
 
     Attributes:
-        _gpuworklib:   модуль gpuworklib (shim) или None
+        _gpuworklib:   legacy field, всегда None после Phase A5 (shim удалён)
         _lib_path:     путь откуда загружены модули
         _load_attempted: флаг что поиск уже выполнен
     """
 
-    _gpuworklib = None
+    _gpuworklib = None  # DEPRECATED: всегда None после Phase A5 (gpuworklib shim удалён)
     _lib_path: Optional[Path] = None
     _load_attempted: bool = False
 
     @classmethod
     def get(cls):
-        """Получить модуль gpuworklib (обратная совместимость).
+        """DEPRECATED: возвращает None после Phase A5 (gpuworklib shim удалён).
 
-        Returns:
-            Модуль gpuworklib или None если не найден.
+        Используй прямой импорт: `import dsp_core; import dsp_<module>`.
+        Метод сохранён для обратной совместимости utility-скриптов.
         """
         if not cls._load_attempted:
             cls._load_attempted = True
             cls._try_load()
-        return cls._gpuworklib
+        return cls._gpuworklib  # всегда None после A5
 
     @classmethod
     def setup_path(cls) -> bool:
-        """Добавить lib/ в sys.path без возврата модуля.
+        """Добавить libs/ в sys.path без возврата модуля.
 
         Returns:
-            True если lib/ найден и добавлен.
+            True если libs/ найден и добавлен.
         """
         if not cls._load_attempted:
             cls._load_attempted = True
@@ -96,7 +95,7 @@ class GPULoader:
 
     @classmethod
     def _try_load(cls) -> None:
-        """Найти lib-директорию и загрузить gpuworklib."""
+        """Найти libs-директорию с dsp_core (после Phase A5 cleanup gpuworklib shim удалён)."""
 
         def _try_lib_path(path: Path) -> bool:
             """Добавить path в sys.path и попробовать import dsp_core."""
@@ -121,14 +120,12 @@ class GPULoader:
             if not candidate.is_absolute():
                 candidate = _DSP_ROOT / candidate
             if _try_lib_path(candidate):
-                cls._load_gpuworklib()
                 return
 
         # 1. Уже доступен?
         try:
             import dsp_core  # noqa: F401
             cls._lib_path = Path("(already in sys.path)")
-            cls._load_gpuworklib()
             return
         except ImportError:
             pass
@@ -136,7 +133,6 @@ class GPULoader:
         # 2. Перебрать статические пути
         for candidate in _SEARCH_PATHS:
             if _try_lib_path(candidate):
-                cls._load_gpuworklib()
                 return
 
         # 3. Авто-поиск: найти dsp_core.* где угодно внутри build/
@@ -147,24 +143,9 @@ class GPULoader:
                 fp = Path(found)
                 if fp.suffix in (".pyd", ".so") or ".cpython" in fp.name:
                     if _try_lib_path(fp.parent):
-                        cls._load_gpuworklib()
                         return
 
-        # Не нашли
-        cls._gpuworklib = None
-
-    @classmethod
-    def _load_gpuworklib(cls) -> None:
-        """Импортировать gpuworklib shim после настройки sys.path."""
-        # gpuworklib.py находится в DSP/Python/ — добавляем если нужно
-        python_root_str = str(_PYTHON_ROOT)
-        if python_root_str not in sys.path:
-            sys.path.insert(0, python_root_str)
-        try:
-            import gpuworklib as gw
-            cls._gpuworklib = gw
-        except ImportError:
-            cls._gpuworklib = None
+        # Не нашли — _lib_path остаётся None
 
     @classmethod
     def loaded_from(cls) -> Optional[str]:
@@ -173,12 +154,15 @@ class GPULoader:
 
     @classmethod
     def is_available(cls) -> bool:
-        """True если dsp_core доступен."""
-        return cls.get() is not None
+        """True если dsp_core доступен (deprecated — используй setup_path() напрямую)."""
+        # DEPRECATED: после Phase A5 (удаление gpuworklib shim) этот метод
+        # просто проверяет что setup_path() нашёл libs/. Сохранён для обратной
+        # совместимости утилит.
+        return cls.setup_path()
 
     @classmethod
     def reset(cls) -> None:
         """Сбросить Singleton (для тестирования GPULoader)."""
-        cls._gpuworklib = None
+        cls._gpuworklib = None  # legacy field, всегда None после Phase A5
         cls._lib_path = None
         cls._load_attempted = False

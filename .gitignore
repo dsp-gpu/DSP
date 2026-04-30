@@ -3,9 +3,19 @@ build/
 *.so
 __pycache__/
 .cache/
-Python/lib/
+Python/lib/                           # legacy, заменено на Python/libs/
+Python/libs/*.so                      # автокопия CMake POST_BUILD, не в git
+Python/libs/*.pyd
 Logs/
 Results/
 Doc/Doxygen/**/html/
 Doc/Doxygen/**/*.tag
 ~!*
+
+# ── Секреты — НИКОГДА в git ───────────────────────────────────────
+api_keys.json
+**/api_keys.json
+*.key
+*.pem
+.env
+.env.*

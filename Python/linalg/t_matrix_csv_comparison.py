@@ -9,7 +9,7 @@ Python тест: сравнение инверсии матриц vector_algebra
     python Python_test/vector_algebra/test_matrix_csv_comparison.py
     PYTHONPATH=build/python python Python_test/vector_algebra/test_matrix_csv_comparison.py
 
-Требования: ROCm, gpuworklib (ENABLE_ROCM=ON), numpy
+Требования: ROCm, dsp_linalg (ENABLE_ROCM=ON), numpy
 """
 
 import os
@@ -22,18 +22,25 @@ _PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _PT_DIR not in sys.path:
     sys.path.insert(0, _PT_DIR)
 from common.runner import SkipTest, TestRunner
+from common.gpu_loader import GPULoader
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
 
 try:
-    import gpuworklib
-    _gw = gpuworklib
+    import dsp_core as core
+    import dsp_linalg as linalg
+    HAS_GPU = True
 except ImportError:
-    _gw = None
+    HAS_GPU = False
+    core = None    # type: ignore
+    linalg = None  # type: ignore
 
 # Paths
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = os.path.abspath(os.path.join(_THIS_DIR, "..", ".."))
-DATA_DIR = os.path.join(_REPO_ROOT, "modules", "vector_algebra", "tests", "Data")
-REPORT_DIR = os.path.join(_REPO_ROOT, "Results", "Reports", "vector_algebra")
+# CSV data: скопированы в DSP/Python/linalg/data/ (Phase A2.0 pre-scan)
+DATA_DIR = os.path.join(_THIS_DIR, "data")
+REPORT_DIR = os.path.join(_REPO_ROOT, "Results", "Reports", "linalg")
 
 # Пороги: float32, реальные данные — допускаем относительную ошибку по результатам прогона
 REL_ERR_THRESHOLD_85 = 2e-2   # 85×85 (~1.85e-2 observed)
@@ -120,12 +127,12 @@ class TestMatrixCsvComparison:
     """Тесты сравнения инверсии матриц с CSV-эталоном."""
 
     def setUp(self):
-        if _gw is None:
-            raise SkipTest("gpuworklib не найден")
+        if not HAS_GPU:
+            raise SkipTest("dsp_core/dsp_linalg не найдены")
         try:
-            self._ctx = _gw.ROCmGPUContext(0)
-            self._inverter = _gw.CholeskyInverterROCm(
-                self._ctx, _gw.SymmetrizeMode.GpuKernel
+            self._ctx = core.ROCmGPUContext(0)
+            self._inverter = linalg.CholeskyInverterROCm(
+                self._ctx, linalg.SymmetrizeMode.GpuKernel
             )
         except Exception as e:
             raise SkipTest(f"ROCm недоступен: {e}")

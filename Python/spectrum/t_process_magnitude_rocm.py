@@ -31,7 +31,19 @@ if _PT_DIR not in sys.path:
     sys.path.insert(0, _PT_DIR)
 from common.runner import SkipTest, TestRunner
 from common.gpu_loader import GPULoader
-from common.gpu_context import GPUContextManager
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
+
+try:
+    import dsp_core as core
+    import dsp_spectrum as spectrum
+    import dsp_stats as stats
+    HAS_GPU = True
+except ImportError:
+    HAS_GPU = False
+    core = None      # type: ignore
+    spectrum = None  # type: ignore
+    stats = None     # type: ignore
 
 
 # ============================================================================
@@ -57,18 +69,15 @@ class TestProcessMagnitude:
     """Tests for ComplexToMagROCm.process_magnitude."""
 
     def setUp(self):
-        gw = GPULoader.get()
-        if gw is None:
-            raise SkipTest("gpuworklib не найден")
-        ctx = GPUContextManager.get_rocm()
-        if ctx is None:
-            raise SkipTest("ROCm недоступен")
-        if not hasattr(gw, "ComplexToMagROCm"):
-            raise SkipTest("ComplexToMagROCm not available in this build")
-        self._mag_proc = gw.ComplexToMagROCm(ctx)
-        if not hasattr(gw, "StatisticsProcessor"):
-            raise SkipTest("StatisticsProcessor not available in this build")
-        self._stats_proc = gw.StatisticsProcessor(ctx)
+        if not HAS_GPU:
+            raise SkipTest("dsp_core/dsp_spectrum/dsp_stats not found — check build/libs")
+        if not hasattr(spectrum, "ComplexToMagROCm"):
+            raise SkipTest("ComplexToMagROCm not available in dsp_spectrum")
+        if not hasattr(stats, "StatisticsProcessor"):
+            raise SkipTest("StatisticsProcessor not available in dsp_stats")
+        ctx = core.ROCmGPUContext(0)
+        self._mag_proc = spectrum.ComplexToMagROCm(ctx)
+        self._stats_proc = stats.StatisticsProcessor(ctx)
 
     def test_single_beam_no_norm(self):
         """Single beam, norm_coeff=1: result ≈ np.abs(iq)."""

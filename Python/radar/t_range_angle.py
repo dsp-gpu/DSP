@@ -25,7 +25,17 @@ if _PT_DIR not in sys.path:
     sys.path.insert(0, _PT_DIR)
 from common.runner import SkipTest, TestRunner
 from common.gpu_loader import GPULoader
-from common.gpu_context import GPUContextManager
+
+GPULoader.setup_path()  # добавляет DSP/Python/libs/ в sys.path
+
+try:
+    import dsp_core as core
+    import dsp_radar as radar
+    HAS_GPU = True
+except ImportError:
+    HAS_GPU = False
+    core = None   # type: ignore
+    radar = None  # type: ignore
 
 
 # ── Вспомогательные функции ───────────────────────────────────────────────────
@@ -50,12 +60,10 @@ class TestRangeAngle:
     """Тесты RangeAngleProcessor."""
 
     def setUp(self):
-        self._gw = GPULoader.get()
-        if self._gw is None:
-            raise SkipTest("gpuworklib не найден")
-        self._rocm_ctx = GPUContextManager.get_rocm()
-        if self._rocm_ctx is None:
-            raise SkipTest("ROCm недоступен")
+        if not HAS_GPU:
+            raise SkipTest("dsp_core/dsp_radar не найдены")
+        self._gw = radar  # alias на dsp_radar для обратной совместимости с self.gw в тестах
+        self._rocm_ctx = core.ROCmGPUContext(0)
 
     def test_default_params(self):
         """Проверяем дефолтные значения RangeAngleParams."""

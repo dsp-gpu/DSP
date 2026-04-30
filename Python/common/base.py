@@ -18,7 +18,8 @@ Usage:
             return np.random.randn(4096).astype(np.complex64)
 
         def process(self, data, ctx):
-            f = gpuworklib.FirFilterROCm(ctx, coeffs)
+            import dsp_spectrum
+            f = dsp_spectrum.FirFilterROCm(ctx, coeffs)
             return f.process(data)
 
         def validate(self, result, params):
