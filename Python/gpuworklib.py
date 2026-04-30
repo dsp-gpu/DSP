@@ -33,8 +33,8 @@ try:
 except ImportError as e:
     raise ImportError(
         f"dsp_core not found: {e}\n"
-        "Запустите: cmake --install build --prefix DSP/Python/lib\n"
-        "Затем: export PYTHONPATH=DSP/Python/lib:$PYTHONPATH"
+        "Соберите проект (CMake POST_BUILD скопирует .so в DSP/Python/libs/),\n"
+        "или: export DSP_LIB_DIR=<path-to-libs-dir>"
     ) from e
 
 # ── dsp_spectrum ──────────────────────────────────────────────────

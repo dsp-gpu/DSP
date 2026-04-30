@@ -8,7 +8,7 @@ Singleton (GoF) + Protected Variations (GRASP):
 
 Порядок поиска (от приоритетного к резервному):
   0. DSP_LIB_DIR (переменная окружения)  ← высший приоритет
-  1. DSP/Python/lib/                     ← cmake --install prefix
+  1. DSP/Python/libs/                    ← CMake POST_BUILD auto-deploy (Phase B)
   2. build/python/Release                ← MSVC Release
   3. build/python/Debug                  ← MSVC Debug
   4. build/debian-radeon9070/python      ← Linux ROCm (RDNA4, gfx1201)
@@ -16,20 +16,18 @@ Singleton (GoF) + Protected Variations (GRASP):
   6. build/Release, build/Debug
   7. build/**/dsp_core.*                 ← авто-поиск по build/
 
-После нахождения lib/ добавляет его в sys.path.
-Тогда `import gpuworklib` найдёт shim gpuworklib.py и все 8 .pyd модулей.
+После нахождения libs/ добавляет его в sys.path.
+Тогда `import dsp_core` (и остальные `dsp_*`) найдёт все 8 .so/.pyd модулей.
 
-Usage (обратная совместимость):
-    gw = GPULoader.get()       # возвращает модуль gpuworklib
-    ctx = gw.GPUContext()
-    fft = gw.FFTProcessor(ctx)
-
-Новый стиль (рекомендуется):
-    GPULoader.setup_path()     # добавляет lib/ в sys.path
+Основной API (DSP-GPU):
+    GPULoader.setup_path()     # добавляет libs/ в sys.path
     import dsp_core as core
+    import dsp_spectrum as spectrum
     ctx = core.ROCmGPUContext()
 
-TODO (Фаза 3b): полностью переписать тесты на новый стиль
+Legacy (deprecated, удаляется после миграции Python тестов):
+    gw = GPULoader.get()       # возвращает shim gpuworklib (если ещё есть)
+    ctx = gw.GPUContext()
 
 @author Кодо (AI Assistant)
 @date 2026-04-12 (Phase 3b, dsp-gpu модульная архитектура)
@@ -48,7 +46,7 @@ _PYTHON_ROOT = Path(__file__).parents[1]
 _DSP_ROOT = Path(__file__).parents[2]
 
 _SEARCH_PATHS = [
-    _PYTHON_ROOT / "lib",            # cmake --install
+    _PYTHON_ROOT / "libs",           # CMake POST_BUILD auto-deploy (Phase B)
     _DSP_ROOT / "build/python/Release",
     _DSP_ROOT / "build/python/Debug",
     _DSP_ROOT / "build/debian-radeon9070/python",
