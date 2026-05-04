@@ -102,7 +102,7 @@ def test_cw_no_noise():
                    amplitude=amplitude, phase=phase,
                    norm=norm_val, noise_amplitude=0.0)
 
-    gpu_data = gen.generate()
+    gpu_data = np.squeeze(gen.generate())
     cpu_ref = getX_numpy(fs, points, f0, amplitude, phase, 0.0, norm_val)
 
     max_err = np.max(np.abs(gpu_data - cpu_ref))
@@ -131,7 +131,7 @@ def test_chirp():
     gen.set_params(fs=fs, points=points, f0=f0,
                    fdev=fdev, norm=norm_val, noise_amplitude=0.0)
 
-    gpu_data = gen.generate()
+    gpu_data = np.squeeze(gen.generate())
     cpu_ref = getX_numpy(fs, points, f0, 1.0, 0.0, fdev, norm_val)
 
     max_err = np.max(np.abs(gpu_data - cpu_ref))
@@ -155,7 +155,7 @@ def test_window():
                    amplitude=1.0, noise_amplitude=0.0,
                    tau_base=-0.1)
 
-    gpu_data = gen.generate()
+    gpu_data = np.squeeze(gen.generate())
 
     zeros_first_100 = np.sum(np.abs(gpu_data[:100]) < 1e-6)
     nonzeros_mid = np.sum(np.abs(gpu_data[110:500]) > 0.01)
@@ -187,7 +187,7 @@ def test_multi_channel():
     gen.set_params(fs=fs, antennas=antennas, points=points, f0=f0,
                    noise_amplitude=0.0, tau_step=tau_step, norm=norm_val)
 
-    gpu_data = gen.generate()
+    gpu_data = np.squeeze(gen.generate())
     assert gpu_data.shape == (antennas, points), \
         f"Shape mismatch: {gpu_data.shape} != ({antennas}, {points})"
 
@@ -217,7 +217,7 @@ def test_noise_statistics():
                    amplitude=0.0, noise_amplitude=1.0,
                    norm=1.0, noise_seed=42)
 
-    gpu_data = gen.generate()
+    gpu_data = np.squeeze(gen.generate())
 
     mean_re = np.mean(gpu_data.real)
     mean_im = np.mean(gpu_data.imag)
@@ -279,7 +279,7 @@ def test_signal_plus_noise():
                    amplitude=amplitude, noise_amplitude=noise_amp,
                    norm=norm_val, noise_seed=777)
 
-    gpu_data = gen.generate()
+    gpu_data = np.squeeze(gen.generate())
     cpu_pure = getX_numpy(fs, points, f0, amplitude, 0.0, 0.0, norm_val)
     noise_component = gpu_data - cpu_pure
 
@@ -361,7 +361,7 @@ def make_plots(save_dir):
     norm_val = 1.0 / np.sqrt(2.0)
 
     gen.set_params(fs=fs, points=points, f0=f0, norm=norm_val, noise_amplitude=0.0)
-    gpu = gen.generate()
+    gpu = np.squeeze(gen.generate())
     cpu = getX_numpy(fs, points, f0, 1.0, 0.0, 0.0, norm_val)
     t_ms = np.arange(points) / fs * 1000.0
 
@@ -418,7 +418,7 @@ def make_plots(save_dir):
 
     gen.set_params(fs=fs_chirp, points=pts_chirp, f0=f0_chirp,
                    fdev=fdev_chirp, norm=norm_val, noise_amplitude=0.0)
-    chirp_data = gen.generate()
+    chirp_data = np.squeeze(gen.generate())
     t_chirp = np.arange(pts_chirp) / fs_chirp * 1000.0
 
     fig = plt.figure(figsize=(14, 9))
@@ -477,7 +477,7 @@ def make_plots(save_dir):
         gen.set_params(fs=fs_win, points=pts_win, f0=500.0,
                        amplitude=1.0, noise_amplitude=0.0,
                        tau_base=tau, norm=norm_val)
-        data = gen.generate()
+        data = np.squeeze(gen.generate())
         t_win = np.arange(pts_win) / fs_win * 1000.0
 
         ax.plot(t_win, data.real, color=color, lw=0.8, alpha=0.9, label='Re(X)')
@@ -557,7 +557,7 @@ def make_plots(save_dir):
     gen.set_params(fs=10000.0, points=100000, f0=0.0,
                    amplitude=0.0, noise_amplitude=1.0,
                    norm=1.0, noise_seed=42)
-    noise_data = gen.generate()
+    noise_data = np.squeeze(gen.generate())
 
     fig, axes = plt.subplots(1, 3, figsize=(16, 5))
     fig.suptitle(f'FormSignalGenerator: Noise Analysis (Philox + Box-Muller)  '
@@ -623,13 +623,13 @@ def make_plots(save_dir):
     gen.set_params(fs=fs_sn, points=pts_sn, f0=f0_sn,
                    amplitude=amp_sn, noise_amplitude=an_sn,
                    norm=norm_val, noise_seed=123)
-    sn_data = gen.generate()
+    sn_data = np.squeeze(gen.generate())
 
     # Чистый сигнал
     gen_pure = signal_generators.FormSignalGeneratorROCm(ctx)
     gen_pure.set_params(fs=fs_sn, points=pts_sn, f0=f0_sn,
                         amplitude=amp_sn, noise_amplitude=0.0, norm=norm_val)
-    pure_data = gen_pure.generate()
+    pure_data = np.squeeze(gen_pure.generate())
 
     # FFT
     freq_axis = np.fft.fftfreq(pts_sn, 1.0 / fs_sn)[:pts_sn // 2] / 1000.0  # kHz

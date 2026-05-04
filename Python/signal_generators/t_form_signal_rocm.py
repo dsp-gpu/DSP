@@ -276,11 +276,6 @@ class TestFormSignalGeneratorROCm:
 
 
 if __name__ == "__main__":
-    # Phase B B4 2026-05-04: native segfault on gfx1201 in test_generate_cw_peak_frequency
-    # See MemoryBank/.future/TASK_pybind_native_crashes_2026-05-04.md
-    print("SKIP: native crash — see TASK_pybind_native_crashes_2026-05-04.md")
-    import sys
-    sys.exit(0)
     from common.runner import TestRunner
     runner = TestRunner()
     results = runner.run(TestNumPyReference())
