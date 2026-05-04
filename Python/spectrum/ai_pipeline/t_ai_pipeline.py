@@ -44,8 +44,10 @@ except ImportError:
     core = None      # type: ignore
     spectrum = None  # type: ignore
 
-from .llm_parser import MockParser, FilterSpec, create_parser
-from .filter_designer import FilterDesigner, FilterDesign
+# Phase B 2026-05-04: when run as script, ai_pipeline/ дир добавляется автоматически
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from llm_parser import MockParser, FilterSpec, create_parser
+from filter_designer import FilterDesigner, FilterDesign
 
 
 def make_noise_signal(n: int = 4096, seed: int = 42) -> np.ndarray:

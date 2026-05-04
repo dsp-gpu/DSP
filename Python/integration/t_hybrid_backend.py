@@ -97,13 +97,16 @@ def test_hybrid_rocm_statistics():
     assert ctx_rocm.device_name != "", "Standalone ROCm device is empty"
 
     # Запускаем статистику через standalone ROCm (проверяем совместимость)
+    # Phase B 2026-05-04: API возвращает list[dict] с ключами mean_real / std_dev (per-beam)
     data = np.random.randn(1024).astype(np.float32)
     stats_proc = stats.StatisticsProcessor(ctx_rocm)
     result = stats_proc.compute_statistics(data)
 
-    assert 'mean' in result, "Statistics result missing 'mean'"
-    assert 'std' in result, "Statistics result missing 'std'"
-    print(f"\n    Statistics via ROCm: mean={result['mean']:.4f}, std={result['std']:.4f}")
+    assert isinstance(result, list) and len(result) > 0, "Statistics result must be non-empty list"
+    beam0 = result[0]
+    assert 'mean_real' in beam0, "Statistics beam[0] missing 'mean_real'"
+    assert 'std_dev' in beam0, "Statistics beam[0] missing 'std_dev'"
+    print(f"\n    Statistics via ROCm: mean_real={beam0['mean_real']:.4f}, std_dev={beam0['std_dev']:.4f}")
 
 
 # ============================================================================
@@ -172,11 +175,13 @@ def test_hybrid_parallel_opencl_rocm():
     stats_proc = stats.StatisticsProcessor(ctx_rocm)
     result = stats_proc.compute_statistics(real_data)
 
+    # Phase B 2026-05-04: stats result is list[dict] with mean_real/std_dev (per-beam)
+    beam0 = result[0] if isinstance(result, list) else result
     print(f"\n    ROCm FFT output len: {len(fft_spec)}")
-    print(f"    ROCm Statistics: mean={result['mean']:.4f}, std={result['std']:.4f}")
+    print(f"    ROCm Statistics: mean_real={beam0['mean_real']:.4f}, std_dev={beam0['std_dev']:.4f}")
 
     assert len(fft_spec) == N, f"Expected {N} FFT bins, got {len(fft_spec)}"
-    assert abs(result['mean']) < 1.0, "ROCm mean seems too large"
+    assert abs(beam0['mean_real']) < 1.0, "ROCm mean seems too large"
 
     # Hybrid + OpenCL контексты созданы (interop) — проверяем coexistence
     assert ctx_opencl.device_name != ""

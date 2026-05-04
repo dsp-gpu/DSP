@@ -22,6 +22,9 @@ _PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _PT_DIR not in sys.path:
     sys.path.insert(0, _PT_DIR)
 
+# Phase B 2026-05-04: PROJECT_ROOT для plot output
+PROJECT_ROOT = os.path.dirname(_PT_DIR)
+
 from common.gpu_loader import GPULoader
 from common.runner import SkipTest
 
@@ -101,8 +104,8 @@ def test_fir_gpu_vs_scipy():
     taps = sig.firwin(FIR_TAPS, FIR_CUTOFF).astype(np.float32)
 
     # GPU
-    ctx = core.GPUContext(0)
-    fir = spectrum.FirFilter(ctx)
+    ctx = core.ROCmGPUContext(0)
+    fir = spectrum.FirFilterROCm(ctx)
     fir.set_coefficients(taps.tolist())
 
     signal = generate_test_signal(CHANNELS, POINTS, SAMPLE_RATE)
@@ -132,8 +135,8 @@ def test_fir_basic_properties():
 
     taps = sig.firwin(FIR_TAPS, FIR_CUTOFF).astype(np.float32)
 
-    ctx = core.GPUContext(0)
-    fir = spectrum.FirFilter(ctx)
+    ctx = core.ROCmGPUContext(0)
+    fir = spectrum.FirFilterROCm(ctx)
     fir.set_coefficients(taps.tolist())
 
     assert fir.num_taps == FIR_TAPS
@@ -153,8 +156,8 @@ def test_fir_single_channel():
 
     taps = sig.firwin(32, 0.2).astype(np.float32)
 
-    ctx = core.GPUContext(0)
-    fir = spectrum.FirFilter(ctx)
+    ctx = core.ROCmGPUContext(0)
+    fir = spectrum.FirFilterROCm(ctx)
     fir.set_coefficients(taps.tolist())
 
     # 1D input
@@ -196,8 +199,8 @@ def test_iir_gpu_vs_scipy():
         })
 
     # GPU
-    ctx = core.GPUContext(0)
-    iir = spectrum.IirFilter(ctx)
+    ctx = core.ROCmGPUContext(0)
+    iir = spectrum.IirFilterROCm(ctx)
     iir.set_sections(sections)
 
     signal = generate_test_signal(CHANNELS, POINTS, SAMPLE_RATE)
@@ -222,8 +225,8 @@ def test_iir_basic_properties():
         raise SkipTest("dsp_core/dsp_spectrum not available — check build/libs")
         return
 
-    ctx = core.GPUContext(0)
-    iir = spectrum.IirFilter(ctx)
+    ctx = core.ROCmGPUContext(0)
+    iir = spectrum.IirFilterROCm(ctx)
     iir.set_sections([
         {'b0': 0.02, 'b1': 0.04, 'b2': 0.02, 'a1': -1.56, 'a2': 0.64}
     ])
@@ -246,8 +249,8 @@ def plot_filter_results():
 
     taps = sig.firwin(FIR_TAPS, FIR_CUTOFF).astype(np.float32)
 
-    ctx = core.GPUContext(0)
-    fir = spectrum.FirFilter(ctx)
+    ctx = core.ROCmGPUContext(0)
+    fir = spectrum.FirFilterROCm(ctx)
     fir.set_coefficients(taps.tolist())
 
     signal = generate_test_signal(1, POINTS, SAMPLE_RATE)[0]

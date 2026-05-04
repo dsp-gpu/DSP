@@ -29,9 +29,22 @@ class _NumpySignalGenerator:
     def __init__(self, seed: int = 42):
         self._rng = np.random.default_rng(seed)
 
-    def generate_cw(self, freq, fs, length, amplitude=1.0):
+    def generate_cw(self, freq, fs, length, amplitude=1.0,
+                    beam_count=1, freq_step=0.0):
+        """CW signal. Phase B 2026-05-04: beam_count + freq_step для multi-beam.
+
+        Returns:
+          beam_count=1 → 1D ndarray [length]
+          beam_count>1 → 2D ndarray [beam_count, length] с f0 + i*freq_step на канал i
+        """
         t = np.arange(length) / fs
-        return (amplitude * np.exp(1j * 2 * np.pi * freq * t)).astype(np.complex64)
+        if beam_count == 1:
+            return (amplitude * np.exp(1j * 2 * np.pi * freq * t)).astype(np.complex64)
+        out = np.empty((beam_count, length), dtype=np.complex64)
+        for b in range(beam_count):
+            f_b = freq + b * freq_step
+            out[b, :] = amplitude * np.exp(1j * 2 * np.pi * f_b * t)
+        return out
 
     def generate_lfm(self, f_start, f_end, fs, length, amplitude=1.0):
         t = np.arange(length) / fs

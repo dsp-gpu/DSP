@@ -46,12 +46,17 @@ class TestIOSmoke:
         tr = TestResult(test_name="find_repo_root_sees_git")
         root = ResultStore._PROJECT_ROOT
         has_git = (root / ".git").exists()
-        has_python_test = (root / "Python_test").exists()
+        # Phase B 2026-05-04: в DSP-репо .git на уровне DSP/, root=DSP/, ищем Python/
+        has_python_dir = (
+            (root / "Python").exists() or
+            (root / "DSP" / "Python").exists() or
+            (root / "Python_test").exists()
+        )
         _assert(
             tr,
-            passed=has_git and has_python_test,
+            passed=has_git and has_python_dir,
             name="repo_root_valid",
-            message=f"root={root}, .git={has_git}, Python_test={has_python_test}",
+            message=f"root={root}, .git={has_git}, DSP/Python={has_python_dir}",
         )
         return tr
 

@@ -42,7 +42,8 @@ if _sys_path_root not in sys.path:
 
 from common.result import TestResult, ValidationResult
 from common.validators import DataValidator
-from .numpy_reference import NumpyReference
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from numpy_reference import NumpyReference
 
 
 class PipelineStepValidator:

@@ -24,6 +24,9 @@ _PT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _PT_DIR not in sys.path:
     sys.path.insert(0, _PT_DIR)
 
+# Phase B 2026-05-04: PROJECT_ROOT для plot output
+PROJECT_ROOT = os.path.dirname(_PT_DIR)
+
 from common.gpu_loader import GPULoader
 from common.runner import SkipTest
 
@@ -110,8 +113,8 @@ def test_iir_gpu_vs_scipy():
     sos = sig.butter(IIR_ORDER, IIR_CUTOFF, output='sos').astype(np.float64)
     sections = sos_to_sections(sos)
 
-    ctx = core.GPUContext(0)
-    iir = spectrum.IirFilter(ctx)
+    ctx = core.ROCmGPUContext(0)
+    iir = spectrum.IirFilterROCm(ctx)
     iir.set_sections(sections)
 
     signal = generate_test_signal(CHANNELS, POINTS, SAMPLE_RATE)
@@ -136,8 +139,8 @@ def test_iir_basic_properties():
     sos = sig.butter(IIR_ORDER, IIR_CUTOFF, output='sos').astype(np.float64)
     sections = sos_to_sections(sos)
 
-    ctx = core.GPUContext(0)
-    iir = spectrum.IirFilter(ctx)
+    ctx = core.ROCmGPUContext(0)
+    iir = spectrum.IirFilterROCm(ctx)
     iir.set_sections(sections)
 
     expected_sections = IIR_ORDER // 2  # Each biquad = 2nd order
@@ -170,8 +173,8 @@ def plot_iir_results():
     sos_main = sig.butter(IIR_ORDER, IIR_CUTOFF, output='sos').astype(np.float64)
     sections = sos_to_sections(sos_main)
 
-    ctx = core.GPUContext(0)
-    iir = spectrum.IirFilter(ctx)
+    ctx = core.ROCmGPUContext(0)
+    iir = spectrum.IirFilterROCm(ctx)
     iir.set_sections(sections)
 
     signal = generate_test_signal(1, POINTS, SAMPLE_RATE)[0]

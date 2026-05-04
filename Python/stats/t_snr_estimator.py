@@ -83,7 +83,7 @@ class TestSnrEstimator:
     def __init__(self):
         core_mod, stats_mod = _get_gpu_module_or_skip()
         self.gw = stats_mod  # alias на dsp_stats: SnrEstimationConfig, BranchSelector, BranchType
-        self.ctx = core_mod.GPUContext()
+        self.ctx = core_mod.ROCmGPUContext(0)
         self.stat_proc = stats_mod.StatisticsProcessor(self.ctx)
         self.cfar_mod = _import_cfar_or_skip()
 

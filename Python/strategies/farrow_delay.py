@@ -40,10 +40,10 @@ from typing import Optional
 # Built-in Lagrange 48x5 matrix (from lch_farrow module)
 # ============================================================================
 
-# Path to JSON file in lch_farrow module
+# Path to JSON file in DSP/Python/spectrum/data/ (Phase B 2026-05-04 fix)
 _DEFAULT_MATRIX_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "modules", "lch_farrow", "lagrange_matrix_48x5.json"
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "spectrum", "data", "lagrange_matrix_48x5.json"
 )
 
 

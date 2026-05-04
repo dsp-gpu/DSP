@@ -82,10 +82,12 @@ def test_zero_copy_method_detection():
     print(f"\n    ZeroCopy method: {method}")
 
     # Метод должен быть одним из известных значений
+    # Phase B 2026-05-04: добавлен "HSA Probe (GPU VA from cl_mem, true zero-copy)"
     known_methods = [
         "AMD GPU VA (CL_MEM_AMD_GPU_VA)",
         "DMA-BUF (cl_khr_external_memory_dma_buf)",
         "SVM (Shared Virtual Memory)",
+        "HSA Probe (GPU VA from cl_mem, true zero-copy)",
         "None (ZeroCopy not supported)",
     ]
     assert method in known_methods, f"Unknown ZeroCopy method: '{method}'"

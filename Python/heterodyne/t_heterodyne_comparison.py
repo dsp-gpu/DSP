@@ -156,13 +156,12 @@ def gpu_pipeline(delays_s):
         phase = 2 * np.pi * (0.5 * MU * t_d**2 + F_START * t_d)
         rx[i] = np.exp(1j * phase).astype(np.complex64)
 
-    # Reference (un-delayed) LFM для dechirp
+    # Reference (un-delayed) LFM для dechirp — один ref на все антенны
     phase_ref = 2 * np.pi * (0.5 * MU * t**2 + F_START * t)
     ref_single = np.exp(1j * phase_ref).astype(np.complex64)
-    ref_multi = np.tile(ref_single, n_ant).astype(np.complex64)
 
-    # GPU dechirp
-    dc = het.dechirp(rx.ravel(), ref_multi).reshape(n_ant, N)
+    # GPU dechirp (Phase B 2026-05-04: API expects single ref of length N, not tiled)
+    dc = het.dechirp(rx.ravel(), ref_single).reshape(n_ant, N)
 
     # CPU FFT + argmax + SNR + range на каждую антенну (формат legacy result['antennas'])
     antennas = []

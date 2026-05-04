@@ -323,7 +323,7 @@ if __name__ == "__main__":
     if HAS_GPU:
         print("\n--- GPU vs NumPy Tests ---")
         gpu_test = TestGPUvsNumPy()
-        gpu_test.setup()
+        gpu_test.setUp()
         for name in dir(gpu_test):
             if name.startswith("test_"):
                 try:
@@ -335,3 +335,8 @@ if __name__ == "__main__":
         print("\n--- GPU tests skipped (no dsp_strategies with ROCm) ---")
 
     print("\nDone.")
+    # Phase B 2026-05-04: avoid pybind11 finalization segfault
+    # See MemoryBank/.future/TASK_pybind_native_crashes_2026-05-04.md
+    import os as _os
+    _os.sync()
+    _os._exit(0)

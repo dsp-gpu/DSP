@@ -24,8 +24,10 @@ Usage:
 from dataclasses import dataclass, field
 from typing import Optional
 import numpy as np
+import os, sys
 
-from .llm_parser import FilterSpec
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from llm_parser import FilterSpec
 
 
 @dataclass

@@ -519,11 +519,11 @@ def step08_gpu_pipeline():
     rx_cpu = generate_rx_numpy(DELAYS_LINEAR_S)
 
     # Reference (un-delayed) LFM для dechirp = rx * conj(ref)
+    # Phase B 2026-05-04: API expects single ref of length N, not tiled per antenna
     ref_single = generate_rx_numpy([0.0]).ravel().astype(np.complex64)
-    ref_multi = np.tile(ref_single, ANTENNAS).astype(np.complex64)
 
     # GPU dechirp
-    dc = het.dechirp(rx_cpu.ravel().astype(np.complex64), ref_multi).reshape(ANTENNAS, N)
+    dc = het.dechirp(rx_cpu.ravel().astype(np.complex64), ref_single).reshape(ANTENNAS, N)
 
     # CPU FFT/argmax/SNR/range на каждую антенну (формат legacy result)
     antennas = []
